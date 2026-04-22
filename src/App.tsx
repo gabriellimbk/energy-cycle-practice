@@ -253,7 +253,7 @@ export default function App() {
   const summaryItems = feedback ? [
     { label: 'Energy cycle structure', status: feedback.summary.cycleStructure },
     { label: 'State symbols', status: feedback.summary.stateSymbols },
-    { label: 'Arrow labels', status: feedback.summary.arrowLabels },
+    { label: 'Arrow labels / direction', status: feedback.summary.arrowLabelsAndDirection },
     { label: "Hess's Law calculation", status: feedback.summary.hessLaw },
     { label: 'Final ΔH value', status: feedback.summary.finalDeltaH },
   ] : [];
@@ -630,19 +630,6 @@ export default function App() {
                         </p>
                       </div>
                     )}
-
-                    <div className="pt-4 border-t border-natural-border/50 space-y-2">
-                      {feedback.comments.map((comment, i) => (
-                        <div key={i} className="flex gap-3 items-center">
-                          {isNegativeComment(comment) ? (
-                            <XCircle className="flex-shrink-0 text-red-700" size={18} />
-                          ) : (
-                            <Info className="flex-shrink-0 text-amber-700" size={18} />
-                          )}
-                          <p className="text-[13px] text-natural-ink">{shortenComment(comment)}</p>
-                        </div>
-                      ))}
-                    </div>
                   </div>
 
                   {isSuggestedAnswerVisible && (

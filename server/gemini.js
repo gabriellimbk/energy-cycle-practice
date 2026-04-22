@@ -950,7 +950,7 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
     summary: {
       cycleStructure: cycleStructureSummary,
       stateSymbols: stateSymbolEvaluation.status,
-      arrowLabels: arrowLabelStatus,
+      arrowLabelsAndDirection: arrowLabelStatus,
       hessLaw: hessLawSummary,
       finalDeltaH: finalDeltaHSummary,
     },

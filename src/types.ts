@@ -22,7 +22,7 @@ export interface Feedback {
   summary: {
     cycleStructure: "complete" | "incomplete" | "uncertain";
     stateSymbols: "correct" | "incorrect" | "uncertain";
-    arrowLabels: "correct" | "incorrect" | "uncertain";
+    arrowLabelsAndDirection: "correct" | "incorrect" | "uncertain";
     hessLaw: "correct" | "incorrect" | "missing" | "uncertain";
     finalDeltaH: "correct" | "incorrect" | "missing" | "uncertain";
   };
