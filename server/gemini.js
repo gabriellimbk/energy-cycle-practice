@@ -687,7 +687,37 @@ function reconstructArrowEquations(question, extractedEquations, extractedNodeLa
       };
     });
 
-    return mergeDirectionalArrowEntries(snappedEntries);
+    const mergedEntries = mergeDirectionalArrowEntries(snappedEntries);
+
+    if (targetReaction) {
+      const targetEqComparable = normalizeComparableChemistryText(
+        `${targetReaction.left} -> ${targetReaction.right}`
+      );
+      const alreadyCaptured = mergedEntries.some(
+        (entry) => normalizeComparableChemistryText(entry.equation) === targetEqComparable
+      );
+
+      if (!alreadyCaptured) {
+        const foundInExtracted = extractedEquations.some(
+          (eq) => normalizeComparableChemistryText(eq) === targetEqComparable
+        );
+
+        if (foundInExtracted) {
+          mergedEntries.push({
+            fromNode: targetReaction.left,
+            toNode: targetReaction.right,
+            equation: `${targetReaction.left} -> ${targetReaction.right}`,
+            label: "ΔH",
+            arrowLabel: "ΔH",
+            source: "arrow",
+            hasCompleteLabel: true,
+            labelStatus: "",
+          });
+        }
+      }
+    }
+
+    return mergedEntries;
   }
 
   return extractedEquations.map((equation) => ({
@@ -766,8 +796,24 @@ function isModelDeltaHComment(comment) {
   );
 }
 
+function isLabelFormattingNote(note) {
+  if (typeof note !== "string") {
+    return false;
+  }
+
+  const n = note.toLowerCase();
+  return (
+    n.includes("two lines") ||
+    n.includes("two-line") ||
+    n.includes("treated as a single label") ||
+    n.includes("single label for the arrow") ||
+    (n.includes("label") && (n.includes("multiline") || n.includes("multi-line")))
+  );
+}
+
 function isLowConfidenceExtraction(extractionNotes, uncertainExtractions) {
-  return extractionNotes.length > 0 || uncertainExtractions.length > 0;
+  const substantiveNotes = extractionNotes.filter((note) => !isLabelFormattingNote(note));
+  return substantiveNotes.length > 0 || uncertainExtractions.length > 0;
 }
 
 function isTargetReactionArrow(entry, targetReaction) {
@@ -939,10 +985,10 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
     - Do not merge a nearby note into fromNode or toNode unless it is clearly written inline on the same baseline as the node text.
     - In comments and hessLawApplication, base balance judgments on the implied equation for each arrow connection.
     - energyCycleStatus is about structure only: "complete" if all needed nodes and arrows are present and connected; "incomplete" if the cycle is missing nodes, arrows, or is disconnected.
-    - hessLawStatus is about the WRITTEN MATHEMATICAL CALCULATION only, not the diagram structure. A correct cycle drawing without a written algebraic substitution is still "missing".
-    - Use hessLawStatus = "missing" if the student has not written an explicit algebraic Hess's Law calculation (e.g. ΔH = value1 + value2 - value3).
-    - Use hessLawStatus = "incorrect" if a written Hess's Law calculation is present but has wrong signs, wrong values, or incorrect arithmetic.
-    - Use hessLawStatus = "correct" if the written Hess's Law calculation is present and yields the correct answer.
+    - hessLawStatus is about whether the student has CORRECTLY SET UP the Hess's Law formula — correct signs and correct reference values substituted. It is NOT about the final arithmetic result.
+    - Use hessLawStatus = "missing" if the student has not written any explicit algebraic Hess's Law calculation (e.g. ΔH = value1 + value2 - value3).
+    - Use hessLawStatus = "incorrect" if a written Hess's Law calculation is present but uses wrong signs or wrong reference values in the formula itself.
+    - Use hessLawStatus = "correct" if the student has correctly written the formula with the right signs and right values, even if their arithmetic on the next line contains an error.
     - deltaHCalculationStatus is ONLY about the final numerical answer written by the student (e.g. "ΔH = -2719 kJ mol⁻¹" or just "-2719"). Ignore energy cycle structure completely.
     - Use deltaHCalculationStatus = "missing" if no final numerical ΔH value is written anywhere on the page.
     - Use deltaHCalculationStatus = "incorrect" if a final numerical ΔH value is written but does not match ${question.expectedValue}.
@@ -991,7 +1037,9 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
     question,
   );
   const oppositeDirectionDetected = hasOppositeDirections(arrowConnections);
-  const extractionNotes = normalizeStringArray(parsedResponse.extractionNotes);
+  const extractionNotes = normalizeStringArray(parsedResponse.extractionNotes).filter(
+    (note) => !isLabelFormattingNote(note)
+  );
   const reconstructedEquations = reconstructArrowEquations(question, extractedEquations, extractedNodeLabels, arrowConnections);
   const reconstructedEquationChecks = validateExtractedEquations(reconstructedEquations.map((entry) => entry.equation))
     .map((check, index) => ({
@@ -1047,7 +1095,7 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
   const cycleStructureSummary = energyCycleStatus
     ? (lowConfidenceExtraction && energyCycleStatus === "incomplete" ? "uncertain" : energyCycleStatus)
     : "uncertain";
-  const equationsBalancedSummary = lowConfidenceExtraction
+  const equationsBalancedSummary = uncertainExtractions.length > 0
     ? "uncertain"
     : (unbalancedEquations.length > 0 ? "incorrect" : "correct");
   const hessLawSummary = normalizeSummaryStatus(hessLawStatus);
