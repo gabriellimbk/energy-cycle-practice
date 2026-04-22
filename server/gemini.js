@@ -358,6 +358,17 @@ function getQuestionReferenceNodes(question) {
   };
 }
 
+function normalizeForStateStripSnap(comparable) {
+  // Normalize Unicode subscripts to ASCII then strip state symbols.
+  // Used to snap node text that differs from the reference only by state symbols.
+  const subscriptMap = {"₀":"0","₁":"1","₂":"2","₃":"3","₄":"4","₅":"5","₆":"6","₇":"7","₈":"8","₉":"9"};
+  return Array.from(comparable)
+    .map((c) => subscriptMap[c] ?? c)
+    .join("")
+    .replace(/\((?:s|l|g|aq)\)/gi, "")
+    .replace(/\s+/g, "");
+}
+
 function snapToReferenceNode(value, referenceNodes) {
   const sanitized = sanitizeNodeLabel(value);
   const comparable = normalizeComparableChemistryText(sanitized);
@@ -371,10 +382,15 @@ function snapToReferenceNode(value, referenceNodes) {
       continue;
     }
 
-    if (
-      comparable === candidateComparable ||
-      candidateComparable.includes(comparable)
-    ) {
+    // Exact match after standard normalization
+    if (comparable === candidateComparable) {
+      return candidate;
+    }
+
+    // Match when the only difference is state symbols (e.g. student omitted "(g)")
+    const strippedComparable = normalizeForStateStripSnap(comparable);
+    const strippedCandidateComparable = normalizeForStateStripSnap(candidateComparable);
+    if (strippedComparable && strippedCandidateComparable && strippedComparable === strippedCandidateComparable) {
       return candidate;
     }
   }
