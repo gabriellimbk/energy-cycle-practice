@@ -395,6 +395,37 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
     }, boardSizeRef.current.width, boardSizeRef.current.height);
   }, []);
 
+  const renderBoardToContext = useCallback((target: CanvasRenderingContext2D, width: number, height: number, strokes: Stroke[]) => {
+    const inkLayer = document.createElement('canvas');
+    inkLayer.width = Math.max(1, width);
+    inkLayer.height = Math.max(1, height);
+    const inkContext = inkLayer.getContext('2d');
+    if (!inkContext) {
+      return;
+    }
+
+    for (const stroke of strokes) {
+      drawStrokeOnContext(inkContext, stroke);
+    }
+
+    target.fillStyle = BACKGROUND_COLOR;
+    target.fillRect(0, 0, width, height);
+    drawBoardBackground(target, width, height);
+
+    target.save();
+    target.setLineDash([14, 10]);
+    target.strokeStyle = TEMPLATE_STROKE_COLOR;
+    target.lineWidth = 2;
+    for (const box of applyTemplateOffset(
+      getTemplateBoxes(templateLayout as TemplateLayout, width, height),
+      templateOffsetRef.current,
+    )) {
+      target.strokeRect(box.left, box.top, box.width, box.height);
+    }
+    target.restore();
+    target.drawImage(inkLayer, 0, 0, width, height);
+  }, [drawBoardBackground, drawStrokeOnContext, templateLayout]);
+
   const createRenderedExportCanvas = useCallback((scale = 1) => {
     const exportCanvas = document.createElement('canvas');
     exportCanvas.width = Math.max(1, Math.round(boardSizeRef.current.width * scale));
@@ -434,37 +465,6 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
 
     return cropCanvas.toDataURL('image/png');
   }, []);
-
-  const renderBoardToContext = useCallback((target: CanvasRenderingContext2D, width: number, height: number, strokes: Stroke[]) => {
-    const inkLayer = document.createElement('canvas');
-    inkLayer.width = Math.max(1, width);
-    inkLayer.height = Math.max(1, height);
-    const inkContext = inkLayer.getContext('2d');
-    if (!inkContext) {
-      return;
-    }
-
-    for (const stroke of strokes) {
-      drawStrokeOnContext(inkContext, stroke);
-    }
-
-    target.fillStyle = BACKGROUND_COLOR;
-    target.fillRect(0, 0, width, height);
-    drawBoardBackground(target, width, height);
-
-    target.save();
-    target.setLineDash([14, 10]);
-    target.strokeStyle = TEMPLATE_STROKE_COLOR;
-    target.lineWidth = 2;
-    for (const box of applyTemplateOffset(
-      getTemplateBoxes(templateLayout as TemplateLayout, width, height),
-      templateOffsetRef.current,
-    )) {
-      target.strokeRect(box.left, box.top, box.width, box.height);
-    }
-    target.restore();
-    target.drawImage(inkLayer, 0, 0, width, height);
-  }, [drawBoardBackground, drawStrokeOnContext, templateLayout]);
 
   const configureContext = useCallback((ctx: CanvasRenderingContext2D) => {
     ctx.lineCap = 'round';
