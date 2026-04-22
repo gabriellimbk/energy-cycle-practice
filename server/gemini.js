@@ -692,7 +692,9 @@ function reconstructArrowEquations(question, extractedEquations, extractedNodeLa
         (entry) => normalizeComparableChemistryText(entry.equation) === targetEqComparable
       );
 
-      if (!alreadyCaptured) {
+      const deltaHArrowDrawn = mergedEntries.some((entry) => isDeltaHLabel(entry.label));
+
+      if (!alreadyCaptured && !deltaHArrowDrawn) {
         const foundInExtracted = extractedEquations.some(
           (eq) => normalizeComparableChemistryText(eq) === targetEqComparable
         );
