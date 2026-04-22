@@ -550,6 +550,76 @@ function optimizeNodeFragments(reconstructedFromArrows, extractedNodeLabels) {
   return bestEntries;
 }
 
+function mergeDirectionalArrowEntries(entries) {
+  const mergedByDirection = new Map();
+
+  for (const entry of entries) {
+    const directionKey = `${normalizeComparableChemistryText(entry.fromNode)}=>${normalizeComparableChemistryText(entry.toNode)}`;
+    const existing = mergedByDirection.get(directionKey);
+
+    if (!existing) {
+      mergedByDirection.set(directionKey, {
+        ...entry,
+        labels: [entry.label],
+        statuses: [entry.labelStatus || ""],
+        hasMissingLabel: entry.hasCompleteLabel === false || isMissingLabel(entry.label),
+      });
+      continue;
+    }
+
+    existing.labels.push(entry.label);
+    existing.statuses.push(entry.labelStatus || "");
+    existing.hasMissingLabel = existing.hasMissingLabel || entry.hasCompleteLabel === false || isMissingLabel(entry.label);
+  }
+
+  const mergedEntries = Array.from(mergedByDirection.values()).map((entry) => {
+    const combinedLabel = combineArrowLabels(entry.labels);
+    let labelStatus = "";
+
+    if (entry.hasMissingLabel) {
+      labelStatus = "missing";
+    } else if (entry.statuses.includes("incorrect")) {
+      labelStatus = "incorrect";
+    } else if (entry.statuses.length > 0 && entry.statuses.every((status) => status === "correct")) {
+      labelStatus = "correct";
+    }
+
+    return {
+      ...entry,
+      label: combinedLabel,
+      arrowLabel: combinedLabel,
+      labelStatus,
+      hasCompleteLabel: !entry.hasMissingLabel,
+    };
+  });
+
+  const directionsByPair = new Map();
+  for (const entry of mergedEntries) {
+    const fromComparable = normalizeComparableChemistryText(entry.fromNode);
+    const toComparable = normalizeComparableChemistryText(entry.toNode);
+    const pairKey = [fromComparable, toComparable].sort().join("<->");
+    const existing = directionsByPair.get(pairKey) || new Set();
+    existing.add(`${fromComparable}=>${toComparable}`);
+    directionsByPair.set(pairKey, existing);
+  }
+
+  return mergedEntries.map((entry) => {
+    const fromComparable = normalizeComparableChemistryText(entry.fromNode);
+    const toComparable = normalizeComparableChemistryText(entry.toNode);
+    const pairKey = [fromComparable, toComparable].sort().join("<->");
+    const directionCount = directionsByPair.get(pairKey)?.size || 1;
+
+    if (directionCount > 1) {
+      return {
+        ...entry,
+        labelStatus: "incorrect",
+      };
+    }
+
+    return entry;
+  });
+}
+
 function reconstructArrowEquations(question, extractedEquations, extractedNodeLabels, arrowConnections) {
   const { nodes: referenceNodes, targetReaction } = getQuestionReferenceNodes(question);
   const reconstructedFromArrows = arrowConnections.map((connection) => ({
@@ -563,7 +633,7 @@ function reconstructArrowEquations(question, extractedEquations, extractedNodeLa
   }));
 
   if (reconstructedFromArrows.length > 0) {
-    return reconstructedFromArrows.map((entry) => {
+    const snappedEntries = reconstructedFromArrows.map((entry) => {
       const normalizedLabel = normalizeComparableChemistryText(entry.label);
 
       if (
@@ -590,6 +660,8 @@ function reconstructArrowEquations(question, extractedEquations, extractedNodeLa
         equation,
       };
     });
+
+    return mergeDirectionalArrowEntries(snappedEntries);
   }
 
   return extractedEquations.map((equation) => ({
@@ -781,6 +853,8 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
     - For arrowConnections, use the node text the arrow visually connects between. Do not invent nodes that are not present.
     - Keep each drawn arrow separate. Do not merge nearby arrows into one combined arrow connection.
     - If several arrows leave the same lower node toward different products, return separate arrowConnections for each visible arrow.
+    - If two arrows have the same start node, the same end node, and the same direction, treat them as one combined reaction step and combine their labels mathematically.
+    - If two arrows connect the same pair of nodes but point in opposite directions, treat that as a direction inconsistency rather than a valid combined label.
     - Do not infer arrow direction from chemistry; use only the visible arrowhead. If the arrowhead is unclear, keep the most literal reading and mention the uncertainty in extractionNotes.
     - Treat the long target reaction written across the top as a standalone equation unless it is clearly one of the drawn cycle arrows.
     - Treat floating combustion notes, added O2 terms, or small annotations written above or below a node as separate notes, not as part of that node.
