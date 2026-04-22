@@ -552,7 +552,6 @@ function optimizeNodeFragments(reconstructedFromArrows, extractedNodeLabels) {
 
 function reconstructArrowEquations(question, extractedEquations, extractedNodeLabels, arrowConnections) {
   const { nodes: referenceNodes, targetReaction } = getQuestionReferenceNodes(question);
-  const commonIntermediateNode = getCommonIntermediateNode(referenceNodes, extractedNodeLabels, arrowConnections);
   const reconstructedFromArrows = arrowConnections.map((connection) => ({
     equation: `${connection.fromNode} -> ${connection.toNode}`,
     fromNode: connection.fromNode,
@@ -581,21 +580,6 @@ function reconstructArrowEquations(question, extractedEquations, extractedNodeLa
 
       let fromNode = snapToReferenceNode(entry.fromNode, referenceNodes);
       let toNode = snapToReferenceNode(entry.toNode, referenceNodes);
-
-      if (targetReaction && commonIntermediateNode) {
-        const fromComparable = normalizeComparableChemistryText(fromNode);
-        const toComparable = normalizeComparableChemistryText(toNode);
-        const reactantComparable = normalizeComparableChemistryText(targetReaction.left);
-        const productComparable = normalizeComparableChemistryText(targetReaction.right);
-
-        if (fromComparable === reactantComparable || toComparable === reactantComparable) {
-          fromNode = targetReaction.left;
-          toNode = commonIntermediateNode;
-        } else if (fromComparable === productComparable || toComparable === productComparable) {
-          fromNode = targetReaction.right;
-          toNode = commonIntermediateNode;
-        }
-      }
 
       const equation = completeOxygenOnlyEquation(`${fromNode} -> ${toNode}`);
 
@@ -783,9 +767,8 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
     ARROW DIRECTION RULES (critical — read carefully):
     - The arrowhead marks the DESTINATION (toNode). It appears as a pointed V-shape, >, or angular mark at one end of the drawn line.
     - For diagonal or slanted arrows: identify which physical end of the line has the pointed angular mark — that end is toNode, regardless of whether the arrow goes up, down, left, or right.
-    - In a typical 3-box Hess cycle (two boxes on top-left and top-right, one box below): the two slanted side arrows almost always point DOWNWARD toward the lower common-level box. The upper-level boxes are fromNode for these side arrows.
-    - In a 5-box cycle (two rows of two boxes, one bottom box): slanted arrows similarly point toward the common intermediate level.
-    - Never assume direction from chemistry — rely only on the visible arrowhead position.
+    - Do not assume a typical Hess cycle direction pattern. In some student drawings, the slanted arrows point upward into the top boxes; in others, they point downward into the lower box.
+    - Never assume direction from chemistry or diagram convention — rely only on the visible arrowhead position.
     - If you are genuinely unsure about the direction of a slanted arrow, note the uncertainty in extractionNotes.
 
     EXTRACTION RULES:
