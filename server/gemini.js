@@ -713,6 +713,18 @@ function reconstructArrowEquations(question, extractedEquations, extractedNodeLa
             hasCompleteLabel: true,
             labelStatus: "",
           });
+        } else {
+          // Target reaction not drawn by student — include it for display but mark as inferred
+          mergedEntries.push({
+            fromNode: targetReaction.left,
+            toNode: targetReaction.right,
+            equation: `${targetReaction.left} -> ${targetReaction.right}`,
+            label: "",
+            arrowLabel: "",
+            source: "inferred",
+            hasCompleteLabel: false,
+            labelStatus: "missing",
+          });
         }
       }
     }
@@ -1085,6 +1097,7 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
     - Do not assume a typical Hess cycle direction pattern. In some student drawings, the slanted arrows point upward into the top boxes; in others, they point downward into the lower box.
     - Never assume direction from chemistry or diagram convention — rely only on the visible arrowhead position.
     - If you are genuinely unsure about the direction of a slanted arrow, note the uncertainty in extractionNotes.
+    - CRITICAL: Record every arrowConnection EXACTLY as the arrow is drawn. fromNode is always the tail (where the arrow starts); toNode is always the arrowhead (where the arrow ends). Do NOT reverse the equation direction for any reason — not to match chemistry sign conventions, not to make the equation look more natural. The student's arrow direction is the ground truth.
 
     EXTRACTION RULES:
     - Transcribe text exactly as written. Do not silently correct chemistry, coefficients, species, or state symbols.
@@ -1189,10 +1202,16 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
   }
 
   const modelComments = normalizeStringArray(parsedResponse.comments);
-  const energyCycleStatus = normalizeBinaryStatus(parsedResponse.energyCycleStatus);
+  const rawEnergyCycleStatus = normalizeBinaryStatus(parsedResponse.energyCycleStatus);
   const hessLawStatus = normalizeTernaryStatus(parsedResponse.hessLawStatus);
   const deltaHCalculationStatus = normalizeTernaryStatus(parsedResponse.deltaHCalculationStatus);
   const { targetReaction } = getQuestionReferenceNodes(question);
+  const targetReactionFromActualArrow = reconstructedEquations.some(
+    (entry) => entry.source === "arrow" && isTargetReactionArrow(entry, targetReaction)
+  );
+  const energyCycleStatus = targetReactionFromActualArrow
+    ? rawEnergyCycleStatus || "incomplete"
+    : "incomplete";
   const stateSymbolEvaluation = evaluateStateSymbols(
     question,
     extractedEquations,
@@ -1217,7 +1236,7 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
     comments.unshift("Extraction check: low-confidence handwriting extraction detected, so balance penalties were suppressed.");
   }
 
-  const arrowDerivedChecks = reconstructedEquationChecks.filter((entry) => entry.source !== "explicit");
+  const arrowDerivedChecks = reconstructedEquationChecks.filter((entry) => entry.source === "arrow");
   const arrowLabelStatus = summarizeArrowLabels(arrowDerivedChecks, targetReaction, lowConfidenceExtraction, oppositeDirectionDetected);
   const cycleStructureSummary = energyCycleStatus
     ? (lowConfidenceExtraction && energyCycleStatus === "incomplete" ? "uncertain" : energyCycleStatus)
