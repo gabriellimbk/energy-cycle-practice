@@ -677,7 +677,7 @@ function reconstructArrowEquations(question, extractedEquations, extractedNodeLa
       let fromNode = snapToReferenceNode(entry.fromNode, referenceNodes);
       let toNode = snapToReferenceNode(entry.toNode, referenceNodes);
 
-      const equation = completeOxygenOnlyEquation(`${fromNode} -> ${toNode}`);
+      const equation = `${fromNode} -> ${toNode}`;
 
       return {
         ...entry,
