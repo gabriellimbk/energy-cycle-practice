@@ -87,6 +87,18 @@ export function collectSpeciesFromTexts(values = []) {
   return values.flatMap((value) => collectSpeciesFromText(value));
 }
 
+function isAqueousContextToken(value) {
+  return /^aq$/i.test(normalizeEquationText(value));
+}
+
+function normalizeFormulaForBalance(value) {
+  return normalizeEquationText(value)
+    .replace(/\((?:aq)\)$/i, "")
+    .replace(/\s+/g, "")
+    .replace(/(?<=[A-Za-z0-9)\]])(?:\^?[+-]+|\^?\d+[+-]|\^?[+-]\d+)$/g, "")
+    .replace(/(?<=[A-Za-z])(?:[+-]+|\d+[+-]|[+-]\d+)$/g, "");
+}
+
 function parseCoefficient(rawValue) {
   if (!rawValue) {
     return 1;
@@ -188,17 +200,34 @@ function parseSpecies(rawSpecies) {
     throw new Error("Empty species");
   }
 
+  if (isAqueousContextToken(trimmed)) {
+    return {
+      coefficient: 0,
+      formula: "aq",
+      atoms: {},
+    };
+  }
+
   const withoutState = trimmed.replace(STATE_SUFFIX_PATTERN, "").trim();
-  const match = withoutState.match(/^(\d+(?:\/\d+)?|\d*\.\d+)?\s*([A-Za-z(][A-Za-z0-9()]*)$/);
+  const match = withoutState.match(/^(\d+(?:\/\d+)?|\d*\.\d+)?\s*(.+)$/);
   if (!match) {
     throw new Error(`Unable to parse species "${rawSpecies}"`);
   }
 
   const [, coefficientText, formulaText] = match;
+  const normalizedFormula = normalizeFormulaForBalance(formulaText);
+  if (!normalizedFormula || /^aq$/i.test(normalizedFormula)) {
+    return {
+      coefficient: 0,
+      formula: normalizedFormula || "aq",
+      atoms: {},
+    };
+  }
+
   return {
     coefficient: parseCoefficient(coefficientText),
-    formula: formulaText,
-    atoms: parseFormula(formulaText),
+    formula: normalizedFormula,
+    atoms: parseFormula(normalizedFormula),
   };
 }
 
