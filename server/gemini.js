@@ -872,7 +872,9 @@ function summarizeArrowLabels(arrowDerivedChecks, targetReaction, lowConfidenceE
     }
 
     if (entry.labelStatus === "incorrect") {
-      return lowConfidenceExtraction ? "uncertain" : "incorrect";
+      // Deterministic sign/value mismatch — only raised when the numeric label
+      // was read successfully, so extraction confidence is not relevant here.
+      return "incorrect";
     }
 
     if (entry.labelStatus === "correct") {
