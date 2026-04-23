@@ -736,6 +736,110 @@ function revalidateMergedArrowEntries(entries, question, targetReaction) {
   return validatedEntries;
 }
 
+function buildMergedActualArrowEntries(question, arrowConnections) {
+  const { nodes: referenceNodes, targetReaction } = getQuestionReferenceNodes(question);
+  const reconstructedFromArrows = arrowConnections.map((connection) => ({
+    equation: `${connection.fromNode} -> ${connection.toNode}`,
+    fromNode: connection.fromNode,
+    toNode: connection.toNode,
+    label: combineArrowLabels([connection.label]),
+    source: "arrow",
+    hasCompleteLabel: !isMissingLabel(connection.label),
+    labelStatus: connection.labelStatus || "",
+    missingStateSpecies: collectMissingStateSpeciesFromNodes(connection.fromNode, connection.toNode),
+  }));
+
+  const snappedEntries = reconstructedFromArrows.map((entry) => {
+    const fromNode = snapToReferenceNode(entry.fromNode, referenceNodes);
+    const toNode = snapToReferenceNode(entry.toNode, referenceNodes);
+    const equation = `${fromNode} -> ${toNode}`;
+    return { ...entry, fromNode, toNode, equation };
+  });
+
+  return revalidateMergedArrowEntries(
+    mergeDirectionalArrowEntries(snappedEntries),
+    question,
+    targetReaction,
+  );
+}
+
+function buildUndirectedArrowGraph(entries) {
+  const adjacency = new Map();
+  const edgeKeys = new Set();
+
+  const addNode = (node) => {
+    if (!adjacency.has(node)) {
+      adjacency.set(node, new Set());
+    }
+  };
+
+  for (const entry of entries) {
+    const fromComparable = normalizeComparableChemistryText(entry.fromNode);
+    const toComparable = normalizeComparableChemistryText(entry.toNode);
+    if (!fromComparable || !toComparable || fromComparable === toComparable) {
+      continue;
+    }
+
+    addNode(fromComparable);
+    addNode(toComparable);
+    adjacency.get(fromComparable).add(toComparable);
+    adjacency.get(toComparable).add(fromComparable);
+    edgeKeys.add([fromComparable, toComparable].sort().join("<->"));
+  }
+
+  return { adjacency, edgeKeys };
+}
+
+function hasUndirectedPath(adjacency, start, goal) {
+  if (!adjacency.has(start) || !adjacency.has(goal)) {
+    return false;
+  }
+
+  const seen = new Set([start]);
+  const queue = [start];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (current === goal) {
+      return true;
+    }
+
+    for (const neighbor of adjacency.get(current) || []) {
+      if (seen.has(neighbor)) {
+        continue;
+      }
+      seen.add(neighbor);
+      queue.push(neighbor);
+    }
+  }
+
+  return false;
+}
+
+function hasClosedTargetLoopCandidate(entries, targetReaction) {
+  if (!targetReaction) {
+    return false;
+  }
+
+  const targetLeft = normalizeComparableChemistryText(targetReaction.left);
+  const targetRight = normalizeComparableChemistryText(targetReaction.right);
+  if (!targetLeft || !targetRight || targetLeft === targetRight) {
+    return false;
+  }
+
+  const { adjacency, edgeKeys } = buildUndirectedArrowGraph(entries);
+  if (adjacency.size < 4 || edgeKeys.size < 3) {
+    return false;
+  }
+
+  const directKey = [targetLeft, targetRight].sort().join("<->");
+  if (edgeKeys.has(directKey)) {
+    return true;
+  }
+
+  return hasUndirectedPath(adjacency, targetLeft, targetRight);
+}
+
 function collectMissingStateSpeciesFromNodes(...nodeTexts) {
   const missing = [];
   const seen = new Set();
@@ -753,32 +857,10 @@ function collectMissingStateSpeciesFromNodes(...nodeTexts) {
 }
 
 function reconstructArrowEquations(question, extractedEquations, extractedNodeLabels, arrowConnections) {
-  const { nodes: referenceNodes, targetReaction } = getQuestionReferenceNodes(question);
-  const reconstructedFromArrows = arrowConnections.map((connection) => ({
-    equation: `${connection.fromNode} -> ${connection.toNode}`,
-    fromNode: connection.fromNode,
-    toNode: connection.toNode,
-    label: combineArrowLabels([connection.label]),
-    source: "arrow",
-    hasCompleteLabel: !isMissingLabel(connection.label),
-    labelStatus: connection.labelStatus || "",
-    missingStateSpecies: collectMissingStateSpeciesFromNodes(connection.fromNode, connection.toNode),
-  }));
+  const { targetReaction } = getQuestionReferenceNodes(question);
+  const mergedEntries = buildMergedActualArrowEntries(question, arrowConnections);
 
-  if (reconstructedFromArrows.length > 0) {
-    const snappedEntries = reconstructedFromArrows.map((entry) => {
-      const fromNode = snapToReferenceNode(entry.fromNode, referenceNodes);
-      const toNode = snapToReferenceNode(entry.toNode, referenceNodes);
-      const equation = `${fromNode} -> ${toNode}`;
-      return { ...entry, fromNode, toNode, equation };
-    });
-
-    const mergedEntries = revalidateMergedArrowEntries(
-      mergeDirectionalArrowEntries(snappedEntries),
-      question,
-      targetReaction,
-    );
-
+  if (mergedEntries.length > 0) {
     if (targetReaction) {
       const targetEqComparable = normalizeComparableChemistryText(
         `${targetReaction.left} -> ${targetReaction.right}`
@@ -1618,14 +1700,17 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
   const hessLawStatus = normalizeTernaryStatus(parsedResponse.hessLawStatus);
   const deltaHCalculationStatus = normalizeTernaryStatus(parsedResponse.deltaHCalculationStatus);
   const targetReaction = questionTargetReaction;
+  const actualMergedArrowEntries = buildMergedActualArrowEntries(question, arrowConnections);
   const targetReactionFromActualArrow = reconstructedEquations.some(
     (entry) => entry.source === "arrow" && (
       isTargetReactionArrow(entry, targetReaction) || isDeltaHLabel(entry.label)
     )
   );
-  const energyCycleStatus = targetReactionFromActualArrow
-    ? rawEnergyCycleStatus || "incomplete"
-    : "incomplete";
+  const deterministicStructureComplete = targetReactionFromActualArrow || (
+    rawEnergyCycleStatus === "complete" &&
+    hasClosedTargetLoopCandidate(actualMergedArrowEntries, targetReaction)
+  );
+  const energyCycleStatus = deterministicStructureComplete ? "complete" : "incomplete";
   const stateSymbolEvaluation = evaluateStateSymbols(
     question,
     extractedEquations,

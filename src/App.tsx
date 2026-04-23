@@ -617,35 +617,35 @@ export default function App() {
                                   <ChemistryText>{formatEquationForDisplay(entry.equation)}</ChemistryText>
                                 </div>
                                 {entry.source !== 'explicit' && (
-                                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-natural-muted">
+                                  <div className="mt-1 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pr-1">
+                                    <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-natural-muted">
                                       Label:
                                     </span>
                                     {(entry.labelStatus === 'missing' || entry.hasCompleteLabel === false) && entry.missingLabelHint ? (
-                                      <span className="text-[10px] font-mono text-red-700">
+                                      <span className="shrink-0 text-[10px] font-mono text-red-700">
                                         missing <ChemistryText>{entry.missingLabelHint}</ChemistryText>
                                       </span>
                                     ) : entry.arrowLabel ? (
-                                      <span className="text-[10px] font-mono text-natural-ink">
+                                      <span className="shrink-0 text-[10px] font-mono text-natural-ink">
                                         <ChemistryText>{entry.arrowLabel}</ChemistryText>
                                       </span>
                                     ) : null}
                                     {(entry.labelStatus === 'missing' || entry.hasCompleteLabel === false) && !entry.missingLabelHint ? (
-                                      <span className="text-[9px] font-black uppercase tracking-widest text-red-600 bg-red-50 px-1.5 py-0.5 rounded">no label</span>
+                                      <span className="shrink-0 text-[9px] font-black uppercase tracking-widest text-red-700 bg-red-100 px-1.5 py-0.5 rounded">no label</span>
                                     ) : entry.labelStatus === 'incorrect' ? (
-                                      <span className="text-[9px] font-black uppercase tracking-widest text-red-600 bg-red-50 px-1.5 py-0.5 rounded">incorrect</span>
+                                      <span className="shrink-0 text-[9px] font-black uppercase tracking-widest text-red-700 bg-red-100 px-1.5 py-0.5 rounded">incorrect</span>
                                     ) : entry.labelStatus === 'correct' && entry.status !== 'unverifiable' ? (
-                                      <span className="text-[9px] font-black uppercase tracking-widest text-natural-green bg-green-50 px-1.5 py-0.5 rounded">correct</span>
+                                      <span className="shrink-0 text-[9px] font-black uppercase tracking-widest text-green-700 bg-green-100 px-1.5 py-0.5 rounded">correct</span>
                                     ) : null}
                                   </div>
                                 )}
                               </div>
-                              <div className={`shrink-0 text-[9px] font-black uppercase tracking-widest ${
+                              <div className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest ${
                                 entry.status === 'balanced'
-                                  ? 'text-natural-green'
+                                  ? 'text-green-700 bg-green-100'
                                   : entry.status === 'unbalanced'
-                                    ? 'text-red-700'
-                                    : 'text-amber-700'
+                                    ? 'text-red-700 bg-red-100'
+                                    : 'text-amber-800 bg-amber-100'
                               }`}>
                                 {entry.status === 'balanced'
                                   ? 'Balanced'
