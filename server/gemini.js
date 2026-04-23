@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { collectSpeciesFromTexts, normalizeEquationText, validateExtractedEquations } from "./chemistryValidation.js";
+import { collectSpeciesFromText, collectSpeciesFromTexts, normalizeEquationText, validateExtractedEquations } from "./chemistryValidation.js";
 
 const ARROW_CONNECTION_SCHEMA = {
   type: Type.OBJECT,
