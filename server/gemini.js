@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { collectSpeciesFromText, collectSpeciesFromTexts, normalizeEquationText, validateExtractedEquations } from "./chemistryValidation.js";
+import { collectSpeciesFromText, collectSpeciesFromTexts, maskCharges, normalizeEquationText, unmaskCharges, validateExtractedEquations } from "./chemistryValidation.js";
 
 const ARROW_CONNECTION_SCHEMA = {
   type: Type.OBJECT,
@@ -990,13 +990,41 @@ function extractSimpleNumericFromLabel(label) {
   return match ? parseFloat(match[0]) : null;
 }
 
+function extractNumericExpressionTotal(label) {
+  if (!label || isMissingLabel(label) || isDeltaHLabel(label)) {
+    return null;
+  }
+
+  const normalized = normalizeEquationText(String(label))
+    .replace(/[−–—]/g, "-")
+    .replace(/\s+/g, "")
+    .replace(/[x×X]/g, "*")
+    .replace(/(?<=\d)\(/g, "*(")
+    .replace(/\)(?=\d)/g, ")*")
+    .replace(/\)\(/g, ")*(");
+
+  if (!normalized || /[^0-9+\-*/().]/.test(normalized)) {
+    return null;
+  }
+
+  try {
+    const total = Function(`"use strict"; return (${normalized});`)();
+    return typeof total === "number" && Number.isFinite(total) ? total : null;
+  } catch {
+    return null;
+  }
+}
+
 function extractProductFromReferenceEquation(equationText) {
   const sides = equationText.split(/\s*(?:->|→|⟶|⟹|=>|=)\s*/);
   if (sides.length !== 2) {
     return null;
   }
 
-  const rightTerms = sides[1].trim().split("+").map((s) => s.trim()).filter(Boolean);
+  const rightTerms = maskCharges(sides[1].trim())
+    .split("+")
+    .map((s) => unmaskCharges(s).trim())
+    .filter(Boolean);
   if (rightTerms.length !== 1) {
     return null;
   }
@@ -1020,7 +1048,10 @@ function findCoeffInNodeText(nodeText, targetProduct) {
   let fallbackMatch = null;
   let stateConflictMatch = null;
 
-  for (const term of nodeText.split("+").map((s) => s.trim()).filter(Boolean)) {
+  for (const term of maskCharges(nodeText)
+    .split("+")
+    .map((s) => unmaskCharges(s).trim())
+    .filter(Boolean)) {
     const match = term.match(/^(\d+(?:\/\d+)?|\d*\.\d+)?\s*(.+)$/);
     if (!match) {
       continue;
@@ -1049,67 +1080,69 @@ function findCoeffInNodeText(nodeText, targetProduct) {
   return fallbackMatch || stateConflictMatch || { coeff: 0, matchType: "none" };
 }
 
-function validateLabelStoichiometry(arrowConnections, question) {
+function deriveExpectedLabelTotal(conn, question) {
   const referenceTable = question?.data?.table || [];
+  let expectedTotal = 0;
+  let contributionCount = 0;
+  let sawStateConflict = false;
 
+  for (const row of referenceTable) {
+    if (typeof row.value !== "number" || !row.equation) {
+      continue;
+    }
+
+    const refProduct = extractProductFromReferenceEquation(row.equation);
+    if (!refProduct) {
+      continue;
+    }
+
+    const valuePerMole = row.value / refProduct.coeff;
+
+    if (conn.toNode) {
+      const match = findCoeffInNodeText(conn.toNode, refProduct);
+      if (match.matchType === "state-conflict") {
+        sawStateConflict = true;
+      } else if (match.coeff >= 1) {
+        expectedTotal += match.coeff * valuePerMole;
+        contributionCount += 1;
+      }
+    }
+
+    if (conn.fromNode) {
+      const match = findCoeffInNodeText(conn.fromNode, refProduct);
+      if (match.matchType === "state-conflict") {
+        sawStateConflict = true;
+      } else if (match.coeff >= 1) {
+        expectedTotal += -match.coeff * valuePerMole;
+        contributionCount += 1;
+      }
+    }
+  }
+
+  return { expectedTotal, contributionCount, sawStateConflict };
+}
+
+function validateLabelStoichiometry(arrowConnections, question) {
   return arrowConnections.map((conn) => {
     if (conn.labelStatus !== "correct") {
       return conn;
     }
 
-    const labelNum = extractSimpleNumericFromLabel(conn.label);
-    if (labelNum === null) {
+    const labelTotal = extractNumericExpressionTotal(conn.label);
+    if (labelTotal === null) {
       return conn;
     }
 
-    for (const row of referenceTable) {
-      if (typeof row.value !== "number" || !row.equation) {
-        continue;
-      }
-
-      if (Math.abs(Math.abs(row.value) - Math.abs(labelNum)) > 0.6) {
-        continue;
-      }
-
-      const refProduct = extractProductFromReferenceEquation(row.equation);
-      if (!refProduct) {
-        continue;
-      }
-
-      const candidateExpectations = [];
-      let sawStateConflict = false;
-
-      if (conn.toNode) {
-        const match = findCoeffInNodeText(conn.toNode, refProduct);
-        if (match.matchType === "state-conflict") {
-          sawStateConflict = true;
-        } else if (match.coeff >= 1) {
-          const valuePerMole = row.value / refProduct.coeff;
-          candidateExpectations.push(match.coeff * valuePerMole);
-        }
-      }
-
-      if (conn.fromNode) {
-        const match = findCoeffInNodeText(conn.fromNode, refProduct);
-        if (match.matchType === "state-conflict") {
-          sawStateConflict = true;
-        } else if (match.coeff >= 1) {
-          const valuePerMole = row.value / refProduct.coeff;
-          candidateExpectations.push(-match.coeff * valuePerMole);
-        }
-      }
-
-      if (candidateExpectations.length > 0) {
-        const matchedExpectedValue = candidateExpectations.some((expected) => Math.abs(labelNum - expected) <= 0.6);
-        if (!matchedExpectedValue) {
-          return { ...conn, labelStatus: "incorrect" };
-        }
-        continue;
-      }
-
-      if (sawStateConflict) {
+    const { expectedTotal, contributionCount, sawStateConflict } = deriveExpectedLabelTotal(conn, question);
+    if (contributionCount > 0) {
+      if (Math.abs(labelTotal - expectedTotal) > 0.6) {
         return { ...conn, labelStatus: "incorrect" };
       }
+      return conn;
+    }
+
+    if (sawStateConflict) {
+      return { ...conn, labelStatus: "incorrect" };
     }
 
     return conn;
