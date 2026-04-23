@@ -79,11 +79,22 @@ const SUBSCRIPT_DIGITS: Record<string, string> = {
   '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
 };
 
+const SUPERSCRIPT_DIGITS: Record<string, string> = {
+  '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+  '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+};
+
 function formatEquationForDisplay(equation: string): string {
   return equation
     .replace(/->/g, ' → ')
     .replace(/\s{2,}/g, ' ')
-    .replace(/([A-Za-z)])(\d+)(?=[A-Za-z()\s+→\-]|$)/g, (_, prefix, digits) =>
+    // Charges first: Mg2+ → Mg²⁺, Cl- → Cl⁻ (so the digit isn't mistaken for a formula subscript).
+    .replace(/([A-Za-z)])(\d*)([+\-])(?=\(|\s|$|,|→)/g, (_, prefix, digits, sign) => {
+      const digitSup = digits.split('').map((d: string) => SUPERSCRIPT_DIGITS[d] ?? d).join('');
+      return prefix + digitSup + (sign === '+' ? '⁺' : '⁻');
+    })
+    // Formula subscripts: H2O → H₂O, MgCl2 → MgCl₂
+    .replace(/([A-Za-z)])(\d+)(?=[A-Za-z()\s→]|$)/g, (_, prefix, digits) =>
       prefix + digits.split('').map((d: string) => SUBSCRIPT_DIGITS[d] ?? d).join('')
     );
 }
