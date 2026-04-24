@@ -70,7 +70,7 @@ const TEMPLATE_BORDER = '2px dashed rgba(71, 122, 122, 0.9)';
 const ANALYSIS_EXPORT_SCALE = 2;
 const HESS_CALCULATION_TITLE = "Hess's Law Calculation";
 const TEMPLATE_TOP_PADDING = 112;
-const HESS_TITLE_TOP_PADDING = 48;
+const HESS_TITLE_TOP_PADDING = 20;
 const TEMPLATE_BASE_FRAME_WIDTH = Math.min(MIN_BOARD_WIDTH * 0.9, 1040);
 const TEMPLATE_LEFT_MARGIN = (MIN_BOARD_WIDTH - TEMPLATE_BASE_FRAME_WIDTH) / 2;
 
@@ -117,7 +117,7 @@ function getTemplateBoxes(templateLayout: TemplateLayout, width: number, _height
   const rightX = frameStartX + frameWidth - baseBoxWidth;
   const topY = 60 + TEMPLATE_TOP_PADDING;
   const standardRowGap = 120;
-  const expandedRowGap = templateLayout === 4 ? 156 : 140;
+  const expandedRowGap = templateLayout === 4 ? 184 : 140;
   const lowerRowGap = templateLayout === 4 || templateLayout === 5 ? expandedRowGap : standardRowGap;
   const secondRowY = topY + lowerRowGap;
   const bottomY = secondRowY + lowerRowGap;
