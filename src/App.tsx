@@ -693,20 +693,6 @@ export default function App() {
                           No arrow equations were confidently reconstructed from the drawing.
                         </p>
                       )}
-                      {feedback.extractionNotes.length > 0 && (
-                        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                          <div className="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-2">
-                            Extraction Notes
-                          </div>
-                          <div className="space-y-1">
-                            {feedback.extractionNotes.map((note, i) => (
-                              <p key={i} className="text-[11px] leading-relaxed text-amber-800">
-                                {note}
-                              </p>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
 
                     <div className="pt-4 border-t border-natural-border/50 space-y-3">
