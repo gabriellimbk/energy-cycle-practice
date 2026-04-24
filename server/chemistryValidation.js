@@ -366,16 +366,6 @@ function classifyEquation(normalizedEquation, sides) {
     };
   }
 
-  const leftHasPlus = sides[0].includes("+");
-  const rightHasPlus = sides[1].includes("+");
-
-  if (!leftHasPlus && !rightHasPlus) {
-    return {
-      status: "ignored",
-      issue: "Looks like an enthalpy arrow between nodes rather than a full reaction equation.",
-    };
-  }
-
   return null;
 }
 
