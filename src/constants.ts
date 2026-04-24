@@ -177,7 +177,6 @@ export const QUESTIONS: Question[] = [
         {
           enthalpy: "ΔH_vap of H₂O(l)",
           value: 44,
-          equation: "H₂O(l) → H₂O(g)",
         },
       ],
     },
