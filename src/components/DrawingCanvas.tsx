@@ -71,6 +71,7 @@ const ANALYSIS_EXPORT_SCALE = 2;
 const HESS_CALCULATION_TITLE = "Hess's Law Calculation";
 const TEMPLATE_TOP_PADDING = 112;
 const HESS_TITLE_TOP_PADDING = 20;
+const TEMPLATE_FOCUS_TOP_INSET = 140;
 const TEMPLATE_BASE_FRAME_WIDTH = Math.min(MIN_BOARD_WIDTH * 0.9, 1040);
 const TEMPLATE_LEFT_MARGIN = (MIN_BOARD_WIDTH - TEMPLATE_BASE_FRAME_WIDTH) / 2;
 
@@ -276,7 +277,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
       top: bounds.top + templateOffsetRef.current.y,
     };
     const targetLeft = (offsetBounds.left + offsetBounds.width / 2) * scale - scroller.clientWidth / 2;
-    const targetTop = Math.max(0, offsetBounds.top * scale - 40);
+    const targetTop = Math.max(0, offsetBounds.top * scale - TEMPLATE_FOCUS_TOP_INSET);
     scroller.scrollLeft = Math.max(0, Math.round(targetLeft));
     scroller.scrollTop = Math.max(0, Math.round(targetTop));
     syncViewportMetrics();
