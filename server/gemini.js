@@ -611,6 +611,167 @@ function optimizeNodeFragments(reconstructedFromArrows, extractedNodeLabels) {
   return bestEntries;
 }
 
+function tallyCandidate(map, slot, nodeText) {
+  if (!slot || !nodeText) {
+    return;
+  }
+
+  const bucket = map.get(slot) || new Map();
+  bucket.set(nodeText, (bucket.get(nodeText) || 0) + 1);
+  map.set(slot, bucket);
+}
+
+function pickTopCandidate(candidateMap, slot) {
+  const bucket = candidateMap.get(slot);
+  if (!bucket || bucket.size === 0) {
+    return "";
+  }
+
+  return Array.from(bucket.entries())
+    .sort((left, right) => right[1] - left[1] || right[0].length - left[0].length)[0]?.[0] || "";
+}
+
+function inferTemplatePositionNodes(question, arrowConnections) {
+  const { nodes: referenceNodes, targetReaction } = getQuestionReferenceNodes(question);
+  if (!targetReaction) {
+    return {};
+  }
+
+  const slots = {
+    topLeft: targetReaction.left,
+    topRight: targetReaction.right,
+    bottomLeft: "",
+    bottomRight: "",
+  };
+  const candidateMap = new Map();
+
+  for (const connection of arrowConnections) {
+    const fromNode = snapToReferenceNode(connection.fromNode, referenceNodes);
+    const toNode = snapToReferenceNode(connection.toNode, referenceNodes);
+
+    if (normalizeComparableChemistryText(fromNode) === normalizeComparableChemistryText(slots.topLeft) && toNode && toNode !== slots.topRight) {
+      tallyCandidate(candidateMap, "bottomLeft", toNode);
+    }
+    if (normalizeComparableChemistryText(toNode) === normalizeComparableChemistryText(slots.topLeft) && fromNode && fromNode !== slots.topRight) {
+      tallyCandidate(candidateMap, "bottomLeft", fromNode);
+    }
+    if (normalizeComparableChemistryText(fromNode) === normalizeComparableChemistryText(slots.topRight) && toNode && toNode !== slots.topLeft) {
+      tallyCandidate(candidateMap, "bottomRight", toNode);
+    }
+    if (normalizeComparableChemistryText(toNode) === normalizeComparableChemistryText(slots.topRight) && fromNode && fromNode !== slots.topLeft) {
+      tallyCandidate(candidateMap, "bottomRight", fromNode);
+    }
+  }
+
+  slots.bottomLeft = pickTopCandidate(candidateMap, "bottomLeft");
+  slots.bottomRight = pickTopCandidate(candidateMap, "bottomRight");
+  return slots;
+}
+
+function defaultDirectionFromTemplateSlots(fromSlot, toSlot) {
+  const rowOrder = ["left", "right"];
+  const colOrder = ["bottom", "top"];
+  const [fromVertical = "", fromHorizontal = ""] = String(fromSlot).split("-");
+  const [toVertical = "", toHorizontal = ""] = String(toSlot).split("-");
+
+  if (fromVertical === toVertical && rowOrder.includes(fromHorizontal) && rowOrder.includes(toHorizontal)) {
+    return rowOrder.indexOf(fromHorizontal) <= rowOrder.indexOf(toHorizontal)
+      ? { fromSlot, toSlot }
+      : { fromSlot: toSlot, toSlot: fromSlot };
+  }
+
+  if (fromHorizontal === toHorizontal && colOrder.includes(fromVertical) && colOrder.includes(toVertical)) {
+    return colOrder.indexOf(fromVertical) <= colOrder.indexOf(toVertical)
+      ? { fromSlot, toSlot }
+      : { fromSlot: toSlot, toSlot: fromSlot };
+  }
+
+  return { fromSlot, toSlot };
+}
+
+function extractArrowFromPositionalNote(note) {
+  if (typeof note !== "string") {
+    return null;
+  }
+
+  const normalized = note.toLowerCase();
+  const fromToMatch = normalized.match(/arrow\s+from\s+the\s+(top|bottom)\s+(left|right)\s+node\s+to\s+the\s+(top|bottom)\s+(left|right)\s+node/);
+  if (fromToMatch) {
+    return {
+      fromSlot: `${fromToMatch[1]}-${fromToMatch[2]}`,
+      toSlot: `${fromToMatch[3]}-${fromToMatch[4]}`,
+      directional: true,
+    };
+  }
+
+  const betweenMatch = normalized.match(/arrow\s+between\s+the\s+(top|bottom)\s+(left|right)\s+node\s+and\s+the\s+(top|bottom)\s+(left|right)\s+node/);
+  if (betweenMatch) {
+    const directed = defaultDirectionFromTemplateSlots(
+      `${betweenMatch[1]}-${betweenMatch[2]}`,
+      `${betweenMatch[3]}-${betweenMatch[4]}`,
+    );
+    return {
+      ...directed,
+      directional: false,
+    };
+  }
+
+  return null;
+}
+
+function inferArrowConnectionsFromNotes(question, arrowConnections, extractionNotes) {
+  if (!Array.isArray(extractionNotes) || extractionNotes.length === 0) {
+    return [];
+  }
+
+  const slotNodes = inferTemplatePositionNodes(question, arrowConnections);
+  const existingDirectedKeys = new Set(
+    arrowConnections.map((connection) => `${normalizeComparableChemistryText(connection.fromNode)}=>${normalizeComparableChemistryText(connection.toNode)}`)
+  );
+  const existingPairKeys = new Set(
+    arrowConnections.map((connection) => {
+      const fromComparable = normalizeComparableChemistryText(connection.fromNode);
+      const toComparable = normalizeComparableChemistryText(connection.toNode);
+      return [fromComparable, toComparable].sort().join("<->");
+    })
+  );
+
+  const inferredConnections = [];
+  for (const note of extractionNotes) {
+    if (!/no\s+text\s+label|no\s+label|unlabelled|unlabeled/i.test(note)) {
+      continue;
+    }
+
+    const positionalArrow = extractArrowFromPositionalNote(note);
+    if (!positionalArrow) {
+      continue;
+    }
+
+    const fromNode = slotNodes[positionalArrow.fromSlot.replace(/-([a-z])/, (_, c) => c.toUpperCase())];
+    const toNode = slotNodes[positionalArrow.toSlot.replace(/-([a-z])/, (_, c) => c.toUpperCase())];
+    if (!fromNode || !toNode) {
+      continue;
+    }
+
+    const directedKey = `${normalizeComparableChemistryText(fromNode)}=>${normalizeComparableChemistryText(toNode)}`;
+    const pairKey = [normalizeComparableChemistryText(fromNode), normalizeComparableChemistryText(toNode)].sort().join("<->");
+    if (existingDirectedKeys.has(directedKey) || existingPairKeys.has(pairKey)) {
+      continue;
+    }
+
+    inferredConnections.push({
+      fromNode,
+      toNode,
+      label: "",
+      labelStatus: "missing",
+    });
+    existingDirectedKeys.add(directedKey);
+    existingPairKeys.add(pairKey);
+  }
+
+  return inferredConnections;
+}
+
 function mergeDirectionalArrowEntries(entries) {
   const mergedByDirection = new Map();
 
@@ -1760,10 +1921,15 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
   const { targetReaction: questionTargetReaction } = getQuestionReferenceNodes(question);
   const extractedEquations = normalizeStringArray(parsedResponse.extractedEquations);
   const extractedNodeLabels = normalizeStringArray(parsedResponse.extractedNodeLabels);
+  const extractionNotes = normalizeStringArray(parsedResponse.extractionNotes).filter(
+    (note) => !isLabelFormattingNote(note)
+  );
+  const normalizedArrowConnections = normalizeArrowConnections(parsedResponse.arrowConnections);
+  const inferredArrowConnections = inferArrowConnectionsFromNotes(question, normalizedArrowConnections, extractionNotes);
   const arrowConnections = validateBondEnergyLabelSigns(
     validateLabelStoichiometry(
       overrideLabelStatusFromReferenceData(
-        normalizeArrowConnections(parsedResponse.arrowConnections),
+        [...normalizedArrowConnections, ...inferredArrowConnections],
         question,
       ),
       question,
@@ -1772,9 +1938,6 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
     questionTargetReaction,
   );
   const oppositeDirectionDetected = hasOppositeDirections(arrowConnections);
-  const extractionNotes = normalizeStringArray(parsedResponse.extractionNotes).filter(
-    (note) => !isLabelFormattingNote(note)
-  );
   const reconstructedEquations = reconstructArrowEquations(question, extractedEquations, extractedNodeLabels, arrowConnections);
   const reconstructedEquationChecks = validateExtractedEquations(reconstructedEquations.map((entry) => entry.equation))
     .map((check, index) => ({
