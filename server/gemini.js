@@ -816,6 +816,67 @@ function hasUndirectedPath(adjacency, start, goal) {
   return false;
 }
 
+function findUndirectedPath(adjacency, start, goal, ignoredEdgeKey = "") {
+  if (!adjacency.has(start) || !adjacency.has(goal)) {
+    return null;
+  }
+
+  const parents = new Map();
+  const seen = new Set([start]);
+  const queue = [start];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (current === goal) {
+      break;
+    }
+
+    for (const neighbor of adjacency.get(current) || []) {
+      const edgeKey = [current, neighbor].sort().join("<->");
+      if (edgeKey === ignoredEdgeKey || seen.has(neighbor)) {
+        continue;
+      }
+
+      seen.add(neighbor);
+      parents.set(neighbor, current);
+      queue.push(neighbor);
+    }
+  }
+
+  if (!seen.has(goal)) {
+    return null;
+  }
+
+  const path = [goal];
+  let cursor = goal;
+  while (cursor !== start) {
+    cursor = parents.get(cursor);
+    if (!cursor) {
+      return null;
+    }
+    path.push(cursor);
+  }
+
+  path.reverse();
+  return path;
+}
+
+function hasSecondIndependentPath(adjacency, start, goal) {
+  const firstPath = findUndirectedPath(adjacency, start, goal);
+  if (!firstPath || firstPath.length < 2) {
+    return false;
+  }
+
+  for (let index = 0; index < firstPath.length - 1; index += 1) {
+    const edgeKey = [firstPath[index], firstPath[index + 1]].sort().join("<->");
+    if (findUndirectedPath(adjacency, start, goal, edgeKey)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function hasClosedTargetLoopCandidate(entries, targetReaction) {
   if (!targetReaction) {
     return false;
@@ -828,16 +889,11 @@ function hasClosedTargetLoopCandidate(entries, targetReaction) {
   }
 
   const { adjacency, edgeKeys } = buildUndirectedArrowGraph(entries);
-  if (adjacency.size < 4 || edgeKeys.size < 3) {
+  if (adjacency.size < 3 || edgeKeys.size < 3) {
     return false;
   }
 
-  const directKey = [targetLeft, targetRight].sort().join("<->");
-  if (edgeKeys.has(directKey)) {
-    return true;
-  }
-
-  return hasUndirectedPath(adjacency, targetLeft, targetRight);
+  return hasSecondIndependentPath(adjacency, targetLeft, targetRight);
 }
 
 function collectMissingStateSpeciesFromNodes(...nodeTexts) {
@@ -1588,6 +1644,8 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
 
     EXTRACTION RULES:
     - Transcribe text exactly as written. Do not silently correct chemistry, coefficients, species, or state symbols.
+    - Preserve molecular formula digits exactly as written. Do NOT normalize a handwritten formula to match the expected question context.
+    - Example: if the student appears to write C4H4, record C4H4. Do not change it to C4H8 just because the question is about but-1-ene.
     - State symbols matter. Preserve every visible (s), (l), (g), or (aq) exactly when you can see it.
     - If a token is unclear, preserve the visible text as closely as possible and mention the uncertainty in extractionNotes.
     - Do not replace a handwritten coefficient with the chemically correct one just because it seems intended.
@@ -1706,10 +1764,7 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
       isTargetReactionArrow(entry, targetReaction) || isDeltaHLabel(entry.label)
     )
   );
-  const deterministicStructureComplete = targetReactionFromActualArrow || (
-    rawEnergyCycleStatus === "complete" &&
-    hasClosedTargetLoopCandidate(actualMergedArrowEntries, targetReaction)
-  );
+  const deterministicStructureComplete = targetReactionFromActualArrow || hasClosedTargetLoopCandidate(actualMergedArrowEntries, targetReaction);
   const energyCycleStatus = deterministicStructureComplete ? "complete" : "incomplete";
   const stateSymbolEvaluation = evaluateStateSymbols(
     question,

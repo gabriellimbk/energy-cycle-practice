@@ -194,7 +194,7 @@ export default function App() {
   const [isCanvasExpanded, setIsCanvasExpanded] = useState(false);
   const [canvasSnapshot, setCanvasSnapshot] = useState<DrawingCanvasSnapshot | null>(null);
   const [canvasDisplayScale, setCanvasDisplayScale] = useState(100);
-  const [canvasTemplateLayout, setCanvasTemplateLayout] = useState<TemplateLayout>(3);
+  const [canvasTemplateLayout] = useState<TemplateLayout>(4);
   const [hasStartedCanvas, setHasStartedCanvas] = useState(false);
   const [unlockedSuggestedAnswers, setUnlockedSuggestedAnswers] = useState<Record<string, boolean>>({});
   const [isSuggestedAnswerVisible, setIsSuggestedAnswerVisible] = useState(false);
@@ -479,7 +479,6 @@ export default function App() {
                     initialSnapshot={canvasSnapshot}
                     displayScale={canvasDisplayScale / 100}
                     templateLayout={canvasTemplateLayout}
-                    onTemplateChange={setCanvasTemplateLayout}
                     onClear={handleClearCanvas}
                   />
                   {!hasStartedCanvas && (
@@ -617,25 +616,25 @@ export default function App() {
                                   <ChemistryText>{formatEquationForDisplay(entry.equation)}</ChemistryText>
                                 </div>
                                 {entry.source !== 'explicit' && (
-                                  <div className="mt-1 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pr-1">
+                                  <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 pr-1">
                                     <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-natural-muted">
                                       Label:
                                     </span>
                                     {(entry.labelStatus === 'missing' || entry.hasCompleteLabel === false) && entry.missingLabelHint ? (
-                                      <span className="shrink-0 text-[10px] font-mono text-red-700">
+                                      <span className="text-[10px] font-mono text-red-700 break-words">
                                         missing <ChemistryText>{entry.missingLabelHint}</ChemistryText>
                                       </span>
                                     ) : entry.arrowLabel ? (
-                                      <span className="shrink-0 text-[10px] font-mono text-natural-ink">
+                                      <span className="text-[10px] font-mono text-natural-ink break-all">
                                         <ChemistryText>{entry.arrowLabel}</ChemistryText>
                                       </span>
                                     ) : null}
                                     {(entry.labelStatus === 'missing' || entry.hasCompleteLabel === false) && !entry.missingLabelHint ? (
-                                      <span className="shrink-0 text-[9px] font-black uppercase tracking-widest text-red-700 bg-red-100 px-1.5 py-0.5 rounded">no label</span>
+                                      <span className="inline-flex items-center text-[9px] font-black uppercase tracking-widest text-red-700 bg-red-100 px-1.5 py-0.5 rounded">no label</span>
                                     ) : entry.labelStatus === 'incorrect' ? (
-                                      <span className="shrink-0 text-[9px] font-black uppercase tracking-widest text-red-700 bg-red-100 px-1.5 py-0.5 rounded">incorrect</span>
+                                      <span className="inline-flex items-center text-[9px] font-black uppercase tracking-widest text-red-700 bg-red-100 px-1.5 py-0.5 rounded">incorrect</span>
                                     ) : entry.labelStatus === 'correct' && entry.status !== 'unverifiable' ? (
-                                      <span className="shrink-0 text-[9px] font-black uppercase tracking-widest text-green-700 bg-green-100 px-1.5 py-0.5 rounded">correct</span>
+                                      <span className="inline-flex items-center text-[9px] font-black uppercase tracking-widest text-green-700 bg-green-100 px-1.5 py-0.5 rounded">correct</span>
                                     ) : null}
                                   </div>
                                 )}
@@ -851,7 +850,6 @@ export default function App() {
                 initialSnapshot={canvasSnapshot}
                 displayScale={canvasDisplayScale / 100}
                 templateLayout={canvasTemplateLayout}
-                onTemplateChange={setCanvasTemplateLayout}
                 onClear={handleClearCanvas}
               />
             </div>

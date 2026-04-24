@@ -59,16 +59,16 @@ const PENCIL_STROKE_WIDTH = 3;
 const ERASER_STROKE_WIDTH = 20;
 const DRAW_COLOR = '#1a1a1a';
 const BACKGROUND_COLOR = '#ffffff';
-const PAPER_GROW_STEP = 960;
-const PAPER_BOTTOM_THRESHOLD = 240;
-const PAPER_SIDE_THRESHOLD = 160;
-const INITIAL_SIDE_ROOM = 960;
-const INITIAL_VERTICAL_ROOM = 720;
+const BOARD_WIDTH_MULTIPLIER = 2;
+const BOARD_HEIGHT_MULTIPLIER = 2;
+const BOARD_HORIZONTAL_PADDING = 140;
+const BOARD_VERTICAL_PADDING = 220;
 const MIN_BOARD_WIDTH = 1800;
 const MIN_BOARD_HEIGHT = 1200;
 const TEMPLATE_STROKE_COLOR = '#477a7a';
 const TEMPLATE_BORDER = '2px dashed rgba(71, 122, 122, 0.9)';
 const ANALYSIS_EXPORT_SCALE = 2;
+const HESS_CALCULATION_TITLE = "Hess's Law Calculation";
 
 function samePoint(left: StrokePoint, right: StrokePoint) {
   return left.x === right.x && left.y === right.y;
@@ -102,14 +102,14 @@ function getTemplateBoxes(templateLayout: TemplateLayout, width: number, _height
   const safeWidth = Math.max(480, width);
   const frameWidth = Math.min(safeWidth * 0.9, 1040);
   const frameStartX = (safeWidth - frameWidth) / 2;
-  const boxHeight = 52;
+  const boxHeight = templateLayout === 4 ? 62 : 52;
   const horizontalGap = Math.max(56, frameWidth * 0.08);
   const boxWidth = Math.min(420, Math.max(240, (frameWidth - horizontalGap) / 2));
   const leftX = frameStartX;
   const rightX = frameStartX + frameWidth - boxWidth;
   const topY = 60;
   const standardRowGap = 120;
-  const expandedRowGap = 140;
+  const expandedRowGap = templateLayout === 4 ? 156 : 140;
   const lowerRowGap = templateLayout === 4 || templateLayout === 5 ? expandedRowGap : standardRowGap;
   const secondRowY = topY + lowerRowGap;
   const bottomY = secondRowY + lowerRowGap;
@@ -151,6 +151,14 @@ function getTemplateBounds(templateLayout: TemplateLayout, width: number, height
     top,
     width: right - left,
     height: bottom - top,
+  };
+}
+
+function getHessCalculationTitlePosition(templateLayout: TemplateLayout, width: number, height: number) {
+  const bounds = getTemplateBounds(templateLayout, width, height);
+  return {
+    left: bounds.left + bounds.width / 2,
+    top: bounds.top + bounds.height + 88,
   };
 }
 
@@ -568,35 +576,22 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
       return null;
     }
 
-    const scrollerWidth = Math.max(320, scroller.clientWidth - 8);
+    const scrollerWidth = Math.max(320, scroller.clientWidth);
     const scrollerHeight = Math.max(620, scroller.clientHeight);
-    const { maxX, maxY } = getMaxStrokeExtent();
+    let nextWidth = Math.max(
+      MIN_BOARD_WIDTH,
+      boardSizeRef.current.width || 0,
+      Math.round(scrollerWidth * BOARD_WIDTH_MULTIPLIER),
+    );
+    let nextHeight = Math.max(
+      MIN_BOARD_HEIGHT,
+      boardSizeRef.current.height || 0,
+      Math.round(scrollerHeight * BOARD_HEIGHT_MULTIPLIER),
+    );
 
-    let nextWidth = Math.max(scrollerWidth + INITIAL_SIDE_ROOM * 2, boardSizeRef.current.width || 0, maxX + 160, MIN_BOARD_WIDTH);
-    let nextHeight = Math.max(scrollerHeight + INITIAL_VERTICAL_ROOM, boardSizeRef.current.height || 0, Math.max(maxY + 220, 1500), MIN_BOARD_HEIGHT);
-    let leftGrowth = 0;
-    let topGrowth = 0;
-    let rightGrowth = 0;
-    let bottomGrowth = 0;
-
-    if (point && point.x < PAPER_SIDE_THRESHOLD) {
-      leftGrowth = PAPER_GROW_STEP;
-    }
-
-    if (point && point.y < PAPER_SIDE_THRESHOLD) {
-      topGrowth = PAPER_GROW_STEP;
-    }
-
-    if (point && point.x > nextWidth - PAPER_SIDE_THRESHOLD) {
-      rightGrowth = PAPER_GROW_STEP;
-    }
-
-    if (point && point.y > nextHeight - PAPER_BOTTOM_THRESHOLD) {
-      bottomGrowth = PAPER_GROW_STEP;
-    }
-
-    nextWidth += leftGrowth + rightGrowth;
-    nextHeight += topGrowth + bottomGrowth;
+    const templateBounds = getTemplateBounds(templateLayout as TemplateLayout, nextWidth, nextHeight);
+    nextWidth = Math.max(nextWidth, Math.ceil(templateBounds.left + templateBounds.width + BOARD_HORIZONTAL_PADDING));
+    nextHeight = Math.max(nextHeight, Math.ceil(templateBounds.top + templateBounds.height + BOARD_VERTICAL_PADDING * 2));
 
     const changed = nextWidth !== boardSizeRef.current.width || nextHeight !== boardSizeRef.current.height;
     boardSizeRef.current = {
@@ -605,131 +600,20 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
     };
 
     if (changed) {
-      if (leftGrowth || topGrowth) {
-        templateOffsetRef.current = {
-          x: templateOffsetRef.current.x + leftGrowth,
-          y: templateOffsetRef.current.y + topGrowth,
-        };
-
-        for (const stroke of strokesRef.current) {
-          for (const strokePoint of stroke.points) {
-            strokePoint.x += leftGrowth;
-            strokePoint.y += topGrowth;
-          }
-        }
-
-        if (activeStrokeRef.current) {
-          for (const strokePoint of activeStrokeRef.current.points) {
-            strokePoint.x += leftGrowth;
-            strokePoint.y += topGrowth;
-          }
-        }
-
-        for (const livePoint of livePointsRef.current) {
-          livePoint.x += leftGrowth;
-          livePoint.y += topGrowth;
-        }
-      }
-
       applyPaperSize();
       resizeCanvas();
       bumpTemplate((v: number) => v + 1);
-
-      if (leftGrowth) {
-        scroller.scrollLeft += leftGrowth;
-      }
-
-      if (topGrowth) {
-        scroller.scrollTop += topGrowth;
-      }
     }
 
     if (!point) {
       return null;
     }
 
-    return {
-      x: point.x + leftGrowth,
-      y: point.y + topGrowth,
-    };
+    return point;
   }, [applyPaperSize, bumpTemplate, getMaxStrokeExtent, resizeCanvas]);
 
   const ensureViewportRoom = useCallback(() => {
-    const scroller = scrollerRef.current;
-    if (!scroller) {
-      return;
-    }
-
-    let left = 0;
-    let right = 0;
-    let top = 0;
-    let bottom = 0;
-    const viewportWidth = Math.max(1, scroller.clientWidth - 8);
-    const viewportHeight = Math.max(1, scroller.clientHeight);
-
-    if (scroller.scrollLeft < PAPER_SIDE_THRESHOLD) {
-      left = PAPER_GROW_STEP;
-    }
-
-    if (scroller.scrollLeft + viewportWidth > boardSizeRef.current.width - PAPER_SIDE_THRESHOLD) {
-      right = PAPER_GROW_STEP;
-    }
-
-    if (scroller.scrollTop < PAPER_SIDE_THRESHOLD) {
-      top = PAPER_GROW_STEP;
-    }
-
-    if (scroller.scrollTop + viewportHeight > boardSizeRef.current.height - PAPER_BOTTOM_THRESHOLD) {
-      bottom = PAPER_GROW_STEP;
-    }
-
-    if (!left && !right && !top && !bottom) {
-      return;
-    }
-
-    if (left || top) {
-      templateOffsetRef.current = {
-        x: templateOffsetRef.current.x + left,
-        y: templateOffsetRef.current.y + top,
-      };
-    }
-
-    for (const stroke of strokesRef.current) {
-      for (const strokePoint of stroke.points) {
-        strokePoint.x += left;
-        strokePoint.y += top;
-      }
-    }
-
-    if (activeStrokeRef.current) {
-      for (const strokePoint of activeStrokeRef.current.points) {
-        strokePoint.x += left;
-        strokePoint.y += top;
-      }
-    }
-
-    for (const livePoint of livePointsRef.current) {
-      livePoint.x += left;
-      livePoint.y += top;
-    }
-
-    boardSizeRef.current = {
-      width: boardSizeRef.current.width + left + right,
-      height: boardSizeRef.current.height + top + bottom,
-    };
-
-    applyPaperSize();
-    resizeCanvas();
-    bumpTemplate((v: number) => v + 1);
-
-    if (left) {
-      scroller.scrollLeft += left;
-    }
-
-    if (top) {
-      scroller.scrollTop += top;
-    }
-  }, [applyPaperSize, bumpTemplate, resizeCanvas]);
+  }, []);
 
   const appendPoint = useCallback((point: StrokePoint) => {
     const activeStroke = activeStrokeRef.current;
@@ -933,8 +817,8 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
       isDrawingRef.current = false;
       setIsDrawing(false);
       boardSizeRef.current = {
-        width: Math.max(MIN_BOARD_WIDTH, scroller ? scroller.clientWidth + INITIAL_SIDE_ROOM * 2 : MIN_BOARD_WIDTH),
-        height: Math.max(MIN_BOARD_HEIGHT, scroller ? scroller.clientHeight + INITIAL_VERTICAL_ROOM : MIN_BOARD_HEIGHT),
+        width: Math.max(MIN_BOARD_WIDTH, scroller ? Math.round(scroller.clientWidth * BOARD_WIDTH_MULTIPLIER) : MIN_BOARD_WIDTH),
+        height: Math.max(MIN_BOARD_HEIGHT, scroller ? Math.round(scroller.clientHeight * BOARD_HEIGHT_MULTIPLIER) : MIN_BOARD_HEIGHT),
       };
       templateOffsetRef.current = { x: 0, y: 0 };
       hasInitializedViewportRef.current = false;
@@ -942,9 +826,9 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
       resizeCanvas();
 
       if (scroller) {
-        const viewportWidth = Math.max(1, scroller.clientWidth - 8);
-        scroller.scrollLeft = Math.max(0, Math.round((boardSizeRef.current.width * latestScaleRef.current - viewportWidth) / 2));
-        scroller.scrollTop = 0;
+      const viewportWidth = Math.max(1, scroller.clientWidth);
+      scroller.scrollLeft = Math.max(0, Math.round((boardSizeRef.current.width * latestScaleRef.current - viewportWidth) / 2));
+      scroller.scrollTop = 0;
       }
 
       syncViewportMetrics();
@@ -1368,20 +1252,12 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
         >
           <Eraser size={18} />
         </button>
-        {[3, 4, 5].map((layout) => (
-          <button
-            key={layout}
-            onClick={() => onTemplateChange?.(layout as TemplateLayout)}
-            className={`px-3 py-2.5 rounded-lg transition-all shadow-sm border text-sm font-black leading-none ${
-              templateLayout === layout
-                ? 'bg-natural-olive text-white border-natural-olive'
-                : 'bg-white text-natural-muted border-natural-border hover:bg-natural-bg hover:text-natural-ink'
-            }`}
-            title={`${layout}-box template`}
-          >
-            {layout}
-          </button>
-        ))}
+        <div
+          className="px-3 py-2.5 rounded-lg shadow-sm border text-sm font-black leading-none bg-white text-natural-muted border-natural-border"
+          title="4-box template"
+        >
+          4
+        </div>
         {onClear && (
           <button
             onClick={onClear}
@@ -1422,6 +1298,25 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
                   }}
                 />
               ))}
+              {(() => {
+                const title = getHessCalculationTitlePosition(
+                  templateLayout as TemplateLayout,
+                  boardSizeRef.current.width,
+                  boardSizeRef.current.height,
+                );
+                return (
+                  <p
+                    className="absolute text-[20px] font-black text-natural-muted underline decoration-2 underline-offset-4 whitespace-nowrap"
+                    style={{
+                      left: `${title.left + templateOffsetRef.current.x}px`,
+                      top: `${title.top + templateOffsetRef.current.y}px`,
+                      transform: 'translateX(-50%)',
+                    }}
+                  >
+                    {HESS_CALCULATION_TITLE}
+                  </p>
+                );
+              })()}
             </div>
             <canvas
               ref={canvasRef}
