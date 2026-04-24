@@ -68,6 +68,7 @@ const MIN_BOARD_HEIGHT = 1200;
 const TEMPLATE_STROKE_COLOR = '#477a7a';
 const TEMPLATE_BORDER = '2px dashed rgba(71, 122, 122, 0.9)';
 const ANALYSIS_EXPORT_SCALE = 2;
+const CONNECTOR_ANALYSIS_EXPORT_SCALE = 3;
 const HESS_CALCULATION_TITLE = "Hess's Law Calculation";
 const TEMPLATE_TOP_PADDING = 112;
 const HESS_TITLE_TOP_PADDING = 20;
@@ -194,6 +195,51 @@ function applyTemplateOffset(
     left: box.left + offset.x,
     top: box.top + offset.y,
   }));
+}
+
+function getConnectorRegions(
+  templateLayout: TemplateLayout,
+  width: number,
+  height: number,
+  offset: { x: number; y: number }
+) {
+  const boxes = applyTemplateOffset(getTemplateBoxes(templateLayout, width, height), offset);
+  if (boxes.length < 4) {
+    return [];
+  }
+
+  const [topLeft, topRight, bottomLeft, bottomRight] = boxes;
+  const horizontalPadding = 56;
+  const verticalPadding = 54;
+  const horizontalBandHeight = 118;
+  const verticalBandWidth = 124;
+
+  return [
+    {
+      left: topLeft.left + topLeft.width - horizontalPadding,
+      top: topLeft.top + topLeft.height / 2 - horizontalBandHeight / 2,
+      width: Math.max(1, topRight.left - (topLeft.left + topLeft.width) + horizontalPadding * 2),
+      height: horizontalBandHeight,
+    },
+    {
+      left: bottomLeft.left + bottomLeft.width - horizontalPadding,
+      top: bottomLeft.top + bottomLeft.height / 2 - horizontalBandHeight / 2,
+      width: Math.max(1, bottomRight.left - (bottomLeft.left + bottomLeft.width) + horizontalPadding * 2),
+      height: horizontalBandHeight,
+    },
+    {
+      left: topLeft.left + topLeft.width / 2 - verticalBandWidth / 2,
+      top: topLeft.top + topLeft.height - verticalPadding,
+      width: verticalBandWidth,
+      height: Math.max(1, bottomLeft.top - (topLeft.top + topLeft.height) + verticalPadding * 2),
+    },
+    {
+      left: topRight.left + topRight.width / 2 - verticalBandWidth / 2,
+      top: topRight.top + topRight.height - verticalPadding,
+      width: verticalBandWidth,
+      height: Math.max(1, bottomRight.top - (topRight.top + topRight.height) + verticalPadding * 2),
+    },
+  ];
 }
 
 const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initialSnapshot, displayScale = 1, templateLayout = 3, onTemplateChange, onClear }, ref) => {
@@ -856,6 +902,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
       if (!exportCanvas) {
         return [];
       }
+      const connectorExportCanvas = createRenderedExportCanvas(CONNECTOR_ANALYSIS_EXPORT_SCALE);
 
       const strokeBounds = getStrokeBounds(strokesRef.current);
       const rawTemplateBounds = getTemplateBounds(templateLayout as TemplateLayout, boardSizeRef.current.width, boardSizeRef.current.height);
@@ -874,6 +921,12 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
       );
       const contentFocus = strokeBounds ? expandRegion(strokeBounds, 140, 140) : null;
       const mergedFocus = mergeRegions([templateBounds, contentFocus]);
+      const connectorRegions = getConnectorRegions(
+        templateLayout as TemplateLayout,
+        boardSizeRef.current.width,
+        boardSizeRef.current.height,
+        templateOffsetRef.current,
+      ).map((region) => expandRegion(clampRegion(region, boardSizeRef.current.width, boardSizeRef.current.height), 36, 36));
 
       const images = [exportCanvas.toDataURL('image/png')];
 
@@ -883,6 +936,12 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
 
       if (contentFocus && (!mergedFocus || contentFocus.width !== mergedFocus.width || contentFocus.height !== mergedFocus.height || contentFocus.left !== mergedFocus.left || contentFocus.top !== mergedFocus.top)) {
         images.push(createCroppedDataUrl(exportCanvas, contentFocus, ANALYSIS_EXPORT_SCALE));
+      }
+
+      if (connectorExportCanvas) {
+        for (const region of connectorRegions) {
+          images.push(createCroppedDataUrl(connectorExportCanvas, region, CONNECTOR_ANALYSIS_EXPORT_SCALE));
+        }
       }
 
       return images.filter(Boolean);
