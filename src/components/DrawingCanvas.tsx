@@ -69,7 +69,7 @@ const TEMPLATE_STROKE_COLOR = '#477a7a';
 const TEMPLATE_BORDER = '2px dashed rgba(71, 122, 122, 0.9)';
 const ANALYSIS_EXPORT_SCALE = 2;
 const HESS_CALCULATION_TITLE = "Hess's Law Calculation";
-const TEMPLATE_TOP_PADDING = 48;
+const TEMPLATE_TOP_PADDING = 84;
 const HESS_TITLE_TOP_PADDING = 48;
 const TEMPLATE_BASE_FRAME_WIDTH = Math.min(MIN_BOARD_WIDTH * 0.9, 1040);
 const TEMPLATE_LEFT_MARGIN = (MIN_BOARD_WIDTH - TEMPLATE_BASE_FRAME_WIDTH) / 2;
@@ -107,7 +107,9 @@ function getTemplateBoxes(templateLayout: TemplateLayout, width: number, _height
   const frameWidth = Math.min(safeWidth * 0.9, 1040);
   const frameStartX = Math.max(40, Math.min(TEMPLATE_LEFT_MARGIN, safeWidth - frameWidth - 40));
   const boxHeight = templateLayout === 4 ? 62 : 52;
-  const horizontalGap = Math.max(56, frameWidth * 0.08);
+  const horizontalGap = templateLayout === 4
+    ? Math.max(120, frameWidth * 0.18)
+    : Math.max(56, frameWidth * 0.08);
   const boxWidth = Math.min(470, Math.max(280, (frameWidth - horizontalGap) / 2));
   const leftX = frameStartX;
   const rightX = frameStartX + frameWidth - boxWidth;
