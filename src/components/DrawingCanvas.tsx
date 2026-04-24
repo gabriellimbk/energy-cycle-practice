@@ -1,4 +1,4 @@
-import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { Eraser, Pencil } from 'lucide-react';
 
 export interface DrawingCanvasSnapshot {
@@ -69,6 +69,10 @@ const TEMPLATE_STROKE_COLOR = '#477a7a';
 const TEMPLATE_BORDER = '2px dashed rgba(71, 122, 122, 0.9)';
 const ANALYSIS_EXPORT_SCALE = 2;
 const HESS_CALCULATION_TITLE = "Hess's Law Calculation";
+const TEMPLATE_TOP_PADDING = 48;
+const HESS_TITLE_TOP_PADDING = 48;
+const TEMPLATE_BASE_FRAME_WIDTH = Math.min(MIN_BOARD_WIDTH * 0.9, 1040);
+const TEMPLATE_LEFT_MARGIN = (MIN_BOARD_WIDTH - TEMPLATE_BASE_FRAME_WIDTH) / 2;
 
 function samePoint(left: StrokePoint, right: StrokePoint) {
   return left.x === right.x && left.y === right.y;
@@ -101,13 +105,13 @@ function findTouchByIdentifier(touchList: TouchList, identifier: number) {
 function getTemplateBoxes(templateLayout: TemplateLayout, width: number, _height: number) {
   const safeWidth = Math.max(480, width);
   const frameWidth = Math.min(safeWidth * 0.9, 1040);
-  const frameStartX = (safeWidth - frameWidth) / 2;
+  const frameStartX = Math.max(40, Math.min(TEMPLATE_LEFT_MARGIN, safeWidth - frameWidth - 40));
   const boxHeight = templateLayout === 4 ? 62 : 52;
   const horizontalGap = Math.max(56, frameWidth * 0.08);
   const boxWidth = Math.min(420, Math.max(240, (frameWidth - horizontalGap) / 2));
   const leftX = frameStartX;
   const rightX = frameStartX + frameWidth - boxWidth;
-  const topY = 60;
+  const topY = 60 + TEMPLATE_TOP_PADDING;
   const standardRowGap = 120;
   const expandedRowGap = templateLayout === 4 ? 156 : 140;
   const lowerRowGap = templateLayout === 4 || templateLayout === 5 ? expandedRowGap : standardRowGap;
@@ -157,8 +161,8 @@ function getTemplateBounds(templateLayout: TemplateLayout, width: number, height
 function getHessCalculationTitlePosition(templateLayout: TemplateLayout, width: number, height: number) {
   const bounds = getTemplateBounds(templateLayout, width, height);
   return {
-    left: bounds.left + bounds.width / 2,
-    top: bounds.top + bounds.height + 88,
+    left: bounds.left,
+    top: bounds.top + bounds.height + 88 + HESS_TITLE_TOP_PADDING,
   };
 }
 
@@ -205,12 +209,12 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
   latestScaleRef.current = displayScale;
   const hasInitializedViewportRef = useRef(false);
   const boardSizeRef = useRef({
-    width: MIN_BOARD_WIDTH,
-    height: MIN_BOARD_HEIGHT,
+    width: Math.max(MIN_BOARD_WIDTH, initialSnapshot?.boardSize.width ?? MIN_BOARD_WIDTH),
+    height: Math.max(MIN_BOARD_HEIGHT, initialSnapshot?.boardSize.height ?? MIN_BOARD_HEIGHT),
   });
   const templateOffsetRef = useRef({
-    x: 0,
-    y: 0,
+    x: initialSnapshot?.templateOffset?.x || 0,
+    y: initialSnapshot?.templateOffset?.y || 0,
   });
   const viewportMetricsRef = useRef({
     width: 0,
@@ -701,7 +705,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
     }
   }, [flushStrokeRender]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const canvas = canvasRef.current;
     const scroller = scrollerRef.current;
     if (!canvas || !scroller) {
@@ -780,7 +784,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
     syncViewportMetrics();
   }, [commitActiveStroke, displayScale, redrawAll, syncViewportMetrics]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!initialSnapshot) {
       hasInitializedViewportRef.current = false;
       strokesRef.current = [];
@@ -826,9 +830,9 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
       resizeCanvas();
 
       if (scroller) {
-      const viewportWidth = Math.max(1, scroller.clientWidth);
-      scroller.scrollLeft = Math.max(0, Math.round((boardSizeRef.current.width * latestScaleRef.current - viewportWidth) / 2));
-      scroller.scrollTop = 0;
+        const viewportWidth = Math.max(1, scroller.clientWidth);
+        scroller.scrollLeft = Math.max(0, Math.round((boardSizeRef.current.width * latestScaleRef.current - viewportWidth) / 2));
+        scroller.scrollTop = 0;
       }
 
       syncViewportMetrics();
@@ -1310,7 +1314,6 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
                     style={{
                       left: `${title.left + templateOffsetRef.current.x}px`,
                       top: `${title.top + templateOffsetRef.current.y}px`,
-                      transform: 'translateX(-50%)',
                     }}
                   >
                     {HESS_CALCULATION_TITLE}
