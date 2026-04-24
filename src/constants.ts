@@ -161,17 +161,27 @@ export const QUESTIONS: Question[] = [
     id: "q36",
     title: "Formation of Water",
     instruction: "Using the data in the table below, draw an energy cycle to calculate ΔH for the following reaction:",
+    useDataBooklet: true,
     data: {
       reaction: "2H₂(g) + O₂(g) → 2H₂O(l)",
       table: [
         {
-          enthalpy: "ΔH_f of H₂O(l)",
-          value: -286,
-          equation: "H₂(g) + ½O₂(g) → H₂O(l)",
+          enthalpy: "Bond Energy H-H",
+        },
+        {
+          enthalpy: "Bond Energy O=O",
+        },
+        {
+          enthalpy: "Bond Energy O-H",
+        },
+        {
+          enthalpy: "ΔH_vap of H₂O(l)",
+          value: 44,
+          equation: "H₂O(l) → H₂O(g)",
         },
       ],
     },
-    answerHessLaw: "ΔH = 2ΔH_f[H₂O(l)]",
+    answerHessLaw: "ΔH = [2D(H-H) + D(O=O)] - 4D(O-H) - 2ΔH_vap[H₂O(l)]",
     expectedValue: "-572 kJ mol⁻¹",
   },
   {
