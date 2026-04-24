@@ -108,7 +108,7 @@ function getTemplateBoxes(templateLayout: TemplateLayout, width: number, _height
   const frameStartX = Math.max(40, Math.min(TEMPLATE_LEFT_MARGIN, safeWidth - frameWidth - 40));
   const boxHeight = templateLayout === 4 ? 62 : 52;
   const horizontalGap = Math.max(56, frameWidth * 0.08);
-  const boxWidth = Math.min(420, Math.max(240, (frameWidth - horizontalGap) / 2));
+  const boxWidth = Math.min(470, Math.max(280, (frameWidth - horizontalGap) / 2));
   const leftX = frameStartX;
   const rightX = frameStartX + frameWidth - boxWidth;
   const topY = 60 + TEMPLATE_TOP_PADDING;

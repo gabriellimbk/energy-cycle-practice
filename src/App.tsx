@@ -250,6 +250,7 @@ export default function App() {
         setCanvasDisplayScale(70);
         return false;
       }
+      setCanvasDisplayScale(85);
       return true;
     });
   };
@@ -298,6 +299,7 @@ export default function App() {
       setCanvasSnapshot(rest);
     }
     setHasStartedCanvas(true);
+    setCanvasDisplayScale(85);
     setIsCanvasExpanded(true);
   };
 
