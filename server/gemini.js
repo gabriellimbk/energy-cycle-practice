@@ -1508,6 +1508,10 @@ function isBondEnergyQuestion(question) {
   );
 }
 
+function isAtomicFormulaKey(formulaKey) {
+  return /^[a-z]{1,2}$/.test(String(formulaKey || "").trim());
+}
+
 function findAtomsIntermediateNode(arrowConnections, targetReaction) {
   if (!targetReaction) {
     return null;
@@ -1517,6 +1521,7 @@ function findAtomsIntermediateNode(arrowConnections, targetReaction) {
   const rightComp = normalizeComparableChemistryText(targetReaction.right);
   const leftStripped = normalizeForStateStripSnap(leftComp);
   const rightStripped = normalizeForStateStripSnap(rightComp);
+  const candidates = new Map();
 
   const matchesTarget = (comp) => {
     if (!comp) return false;
@@ -1525,15 +1530,55 @@ function findAtomsIntermediateNode(arrowConnections, targetReaction) {
     return Boolean(stripped) && (stripped === leftStripped || stripped === rightStripped);
   };
 
+  const noteCandidate = (nodeText) => {
+    const comparable = normalizeComparableChemistryText(nodeText);
+    if (!comparable || matchesTarget(comparable) || candidates.has(comparable)) {
+      return;
+    }
+
+    const terms = parseStoichiometricTerms(nodeText);
+    if (terms.length === 0) {
+      return;
+    }
+
+    const atomicTermCount = terms.filter((term) => isAtomicFormulaKey(term.formulaKey)).length;
+    const nonAtomicTermCount = terms.length - atomicTermCount;
+    const atomicCoeffTotal = terms
+      .filter((term) => isAtomicFormulaKey(term.formulaKey))
+      .reduce((total, term) => total + term.coeff, 0);
+
+    candidates.set(comparable, {
+      nodeText,
+      atomicTermCount,
+      nonAtomicTermCount,
+      atomicCoeffTotal,
+      totalTerms: terms.length,
+    });
+  };
+
   for (const conn of arrowConnections) {
-    const fromComp = normalizeComparableChemistryText(conn.fromNode);
-    const toComp = normalizeComparableChemistryText(conn.toNode);
-    if (fromComp && !matchesTarget(fromComp)) {
-      return conn.fromNode;
+    noteCandidate(conn.fromNode);
+    noteCandidate(conn.toNode);
+  }
+
+  const rankedCandidates = Array.from(candidates.values()).sort((left, right) => {
+    if (right.atomicTermCount !== left.atomicTermCount) {
+      return right.atomicTermCount - left.atomicTermCount;
     }
-    if (toComp && !matchesTarget(toComp)) {
-      return conn.toNode;
+    if (left.nonAtomicTermCount !== right.nonAtomicTermCount) {
+      return left.nonAtomicTermCount - right.nonAtomicTermCount;
     }
+    if (right.atomicCoeffTotal !== left.atomicCoeffTotal) {
+      return right.atomicCoeffTotal - left.atomicCoeffTotal;
+    }
+    if (right.totalTerms !== left.totalTerms) {
+      return right.totalTerms - left.totalTerms;
+    }
+    return left.nodeText.length - right.nodeText.length;
+  });
+
+  if (rankedCandidates.length > 0) {
+    return rankedCandidates[0].nodeText;
   }
 
   return null;
