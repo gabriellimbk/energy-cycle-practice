@@ -159,44 +159,29 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: "q36",
-    title: "Combustion of Ethene from Bond Energies",
+    title: "Formation of Water",
     instruction: "Using the data in the table below, draw an energy cycle to calculate ΔH for the following reaction:",
-    useDataBooklet: true,
     data: {
-      reaction: "C₂H₄(g) + 3O₂(g) → 2CO₂(g) + 2H₂O(g)",
+      reaction: "2H₂(g) + O₂(g) → 2H₂O(l)",
       table: [
         {
-          enthalpy: "Bond Energy C=C",
-        },
-        {
-          enthalpy: "Bond Energy C-H",
-        },
-        {
-          enthalpy: "Bond Energy O=O",
-        },
-        {
-          enthalpy: "Bond Energy C=O in CO₂",
-        },
-        {
-          enthalpy: "Bond Energy O-H",
+          enthalpy: "ΔH_f of H₂O(l)",
+          value: -286,
+          equation: "H₂(g) + ½O₂(g) → H₂O(l)",
         },
       ],
     },
-    answerHessLaw: "Use the relevant bond energy values from the Data Booklet and apply Hess's law.",
-    expectedValue: "-1320 kJ mol⁻¹",
+    answerHessLaw: "ΔH = 2ΔH_f[H₂O(l)]",
+    expectedValue: "-572 kJ mol⁻¹",
   },
   {
     id: "q38",
-    title: "Formation of Diiodomethane",
+    title: "Formation of Hydrogen Iodide",
     instruction: "Using the data in the table below, draw an energy cycle to calculate ΔH_f for the following reaction:",
     useDataBooklet: true,
     data: {
-      reaction: "C(s) + H₂(g) + I₂(s) → CH₂I₂(g)",
+      reaction: "H₂(g) + I₂(s) → 2HI(g)",
       table: [
-        {
-          enthalpy: "ΔH_atom of C(s)",
-          value: 717,
-        },
         {
           enthalpy: "ΔH_atom of I₂(s)",
           value: 107,
@@ -205,15 +190,12 @@ export const QUESTIONS: Question[] = [
           enthalpy: "Bond Energy H-H",
         },
         {
-          enthalpy: "Bond Energy C-H",
-        },
-        {
-          enthalpy: "Bond Energy C-I",
+          enthalpy: "Bond Energy H-I",
         },
       ],
     },
-    answerHessLaw: "ΔH_f = ΔH_atom[C(s)] + 2ΔH_atom[I₂(s)] + D(H-H) - [2D(C-H) + 2D(C-I)]",
-    expectedValue: "+60 kJ mol⁻¹",
+    answerHessLaw: "ΔH = D(H-H) + 2ΔH_atom[I₂(s)] - 2D(H-I)",
+    expectedValue: "+52 kJ mol⁻¹",
   },
   {
     id: "q32",
