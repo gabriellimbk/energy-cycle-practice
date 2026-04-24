@@ -1256,12 +1256,6 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
         >
           <Eraser size={18} />
         </button>
-        <div
-          className="px-3 py-2.5 rounded-lg shadow-sm border text-sm font-black leading-none bg-white text-natural-muted border-natural-border"
-          title="4-box template"
-        >
-          4
-        </div>
         {onClear && (
           <button
             onClick={onClear}

@@ -235,12 +235,23 @@ export default function App() {
     setHasStartedCanvas(false);
   };
 
+  const collapseCanvasExpanded = () => {
+    setCanvasDisplayScale(70);
+    setIsCanvasExpanded(false);
+  };
+
   const toggleCanvasExpanded = () => {
     const snapshot = canvasRef.current?.getSnapshot();
     if (snapshot) {
       setCanvasSnapshot(snapshot);
     }
-    setIsCanvasExpanded((prev) => !prev);
+    setIsCanvasExpanded((prev) => {
+      if (prev) {
+        setCanvasDisplayScale(70);
+        return false;
+      }
+      return true;
+    });
   };
 
   const handleSubmitFromExpanded = async () => {
@@ -253,7 +264,7 @@ export default function App() {
     if (snapshot) {
       setCanvasSnapshot(snapshot);
     }
-    setIsCanvasExpanded(false);
+    collapseCanvasExpanded();
 
     if (!imageData || imageData.length < 1000) {
       setError("Please draw your answer before checking.");
