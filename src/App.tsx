@@ -19,6 +19,32 @@ import { QUESTIONS } from './constants';
 import { checkStudentWork } from './services/aiService';
 import { Feedback, Question } from './types';
 
+const CANVAS_LOGIN_ID_STORAGE_KEY = 'energyCyclePractice.canvasLoginId';
+
+function getInitialCanvasLoginId() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const idFromUrl = new URLSearchParams(window.location.search).get('id')?.trim();
+  if (idFromUrl) {
+    return idFromUrl;
+  }
+
+  return window.sessionStorage.getItem(CANVAS_LOGIN_ID_STORAGE_KEY)?.trim() || null;
+}
+
+function cleanCanvasLoginIdFromUrl() {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has('id')) {
+    return;
+  }
+
+  url.searchParams.delete('id');
+  const cleanPath = `${url.pathname}${url.search}${url.hash}`;
+  window.history.replaceState({}, document.title, cleanPath);
+}
+
 const decodeChemistryText = (value: string) => {
   return value
     .replaceAll('Î”', '\u0394')
@@ -187,6 +213,7 @@ function statusLabel(status: string) {
 }
 
 export default function App() {
+  const [canvasLoginId] = useState(getInitialCanvasLoginId);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isChecking, setIsChecking] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
@@ -202,6 +229,17 @@ export default function App() {
 
   const currentQuestion = QUESTIONS[currentQuestionIndex];
   const isSuggestedAnswerUnlocked = Boolean(unlockedSuggestedAnswers[currentQuestion.id]);
+
+  useEffect(() => {
+    if (!canvasLoginId) {
+      window.sessionStorage.removeItem(CANVAS_LOGIN_ID_STORAGE_KEY);
+      return;
+    }
+
+    window.sessionStorage.setItem(CANVAS_LOGIN_ID_STORAGE_KEY, canvasLoginId);
+    cleanCanvasLoginIdFromUrl();
+  }, [canvasLoginId]);
+
   const getSuggestedAnswerFinalLine = (question: typeof currentQuestion) => {
     if (question.expectedValue === "Comparison question") {
       return "Compare your theoretical bond-energy value with the experimental combustion value. The gap corresponds to benzene's extra stabilization from delocalization.";
@@ -357,6 +395,22 @@ export default function App() {
     { label: "Hess's Law calculation", status: feedback.summary.hessLaw },
     { label: 'Final ΔH value', status: feedback.summary.finalDeltaH },
   ] : [];
+
+  if (!canvasLoginId) {
+    return (
+      <div className="app-shell min-h-screen bg-natural-bg text-natural-ink font-sans flex items-center justify-center px-4">
+        <div className="w-full max-w-md rounded-xl border border-natural-border bg-white p-6 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg bg-natural-olive text-white">
+            <FlaskConical size={28} />
+          </div>
+          <h1 className="font-serif text-xl font-bold tracking-tight">Energy Cycle Practice</h1>
+          <p className="mt-3 text-sm leading-relaxed text-natural-muted">
+            Open this activity from Canvas to begin.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell min-h-screen bg-natural-bg text-natural-ink font-sans">
