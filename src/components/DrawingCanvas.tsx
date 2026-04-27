@@ -387,6 +387,11 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
     }
 
     ctx.clearRect(0, 0, boardSizeRef.current.width, boardSizeRef.current.height);
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = BACKGROUND_COLOR;
+    ctx.fillRect(0, 0, boardSizeRef.current.width, boardSizeRef.current.height);
+    ctx.restore();
     drawBoardBackground(ctx, boardSizeRef.current.width, boardSizeRef.current.height);
 
     for (const stroke of strokesRef.current) {
@@ -583,7 +588,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
     canvas.style.width = `${boardSizeRef.current.width}px`;
     canvas.style.height = `${boardSizeRef.current.height}px`;
 
-    const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
+    const ctx = canvas.getContext('2d');
     if (!ctx) {
       return;
     }
@@ -1342,7 +1347,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
             className="absolute top-0 left-0 origin-top-left bg-white"
             style={{ transform: `scale(${displayScale})` }}
           >
-            <div className="absolute inset-0 pointer-events-none z-[5]">
+            <div className="absolute inset-0 pointer-events-none z-20">
               {applyTemplateOffset(
                 getTemplateBoxes(templateLayout as TemplateLayout, boardSizeRef.current.width, boardSizeRef.current.height),
                 templateOffsetRef.current,
@@ -1382,7 +1387,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ initia
             <canvas
               ref={canvasRef}
               className="relative z-10 block cursor-crosshair select-none"
-              style={{ touchAction: 'none' }}
+              style={{ touchAction: 'none', backgroundColor: BACKGROUND_COLOR }}
             />
           </div>
         </div>
