@@ -37,7 +37,7 @@ export const QUESTIONS: Question[] = [
       table: [
         {
           enthalpy: "Bond Energy N≡N",
-          value: 945,
+          value: 944,
         },
         {
           enthalpy: "Bond Energy H-H",
@@ -45,12 +45,12 @@ export const QUESTIONS: Question[] = [
         },
         {
           enthalpy: "Bond Energy N-H",
-          value: 391,
+          value: 390,
         },
       ],
     },
-    answerHessLaw: "ΔH = Σ(Bond Energy broken) - Σ(Bond Energy formed) = [945 + 3(436)] - 6(391)",
-    expectedValue: "-93 kJ mol⁻¹",
+    answerHessLaw: "ΔH = Σ(Bond Energy broken) - Σ(Bond Energy formed) = [944 + 3(436)] - 6(390)",
+    expectedValue: "-88 kJ mol⁻¹",
   },
   {
     id: "q23",
@@ -167,12 +167,15 @@ export const QUESTIONS: Question[] = [
       table: [
         {
           enthalpy: "Bond Energy H-H",
+          value: 436,
         },
         {
           enthalpy: "Bond Energy O=O",
+          value: 496,
         },
         {
           enthalpy: "Bond Energy O-H",
+          value: 460,
         },
         {
           enthalpy: "ΔH_vap of H₂O(l)",
@@ -181,7 +184,7 @@ export const QUESTIONS: Question[] = [
       ],
     },
     answerHessLaw: "ΔH = [2BE(H-H) + BE(O=O)] - 4BE(O-H) - 2ΔH_vap[H₂O(l)]",
-    expectedValue: "-572 kJ mol⁻¹",
+    expectedValue: "-560 kJ mol⁻¹",
   },
   {
     id: "q38",
@@ -197,9 +200,11 @@ export const QUESTIONS: Question[] = [
         },
         {
           enthalpy: "Bond Energy H-H",
+          value: 436,
         },
         {
           enthalpy: "Bond Energy H-I",
+          value: 299,
         },
       ],
     },
