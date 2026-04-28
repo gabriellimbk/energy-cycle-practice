@@ -168,14 +168,17 @@ export const QUESTIONS: Question[] = [
         {
           enthalpy: "Bond Energy H-H",
           value: 436,
+          hideValue: true,
         },
         {
           enthalpy: "Bond Energy O=O",
           value: 496,
+          hideValue: true,
         },
         {
           enthalpy: "Bond Energy O-H",
           value: 460,
+          hideValue: true,
         },
         {
           enthalpy: "ΔH_vap of H₂O(l)",
@@ -201,10 +204,12 @@ export const QUESTIONS: Question[] = [
         {
           enthalpy: "Bond Energy H-H",
           value: 436,
+          hideValue: true,
         },
         {
           enthalpy: "Bond Energy H-I",
           value: 299,
+          hideValue: true,
         },
       ],
     },

@@ -7,6 +7,7 @@ export interface Question {
     table: Array<{
       enthalpy: string;
       value?: number;
+      hideValue?: boolean;
       equation?: string;
     }>;
   };

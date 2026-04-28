@@ -493,7 +493,7 @@ export default function App() {
                     <ChemistryText className="font-normal text-natural-ink">
                       {row.enthalpy}
                     </ChemistryText>
-                    {row.value !== undefined && (
+                    {row.value !== undefined && !row.hideValue && (
                       <span className="font-sans font-normal text-natural-olive whitespace-nowrap">
                         {formatEnthalpyValue(row.value)} <span className="text-[10px] opacity-80">kJ mol⁻¹</span>
                       </span>
@@ -851,7 +851,7 @@ export default function App() {
                       <ChemistryText className="font-semibold text-natural-ink">
                         {row.enthalpy}
                       </ChemistryText>
-                      {row.value !== undefined && (
+                      {row.value !== undefined && !row.hideValue && (
                         <span className="shrink-0 font-semibold text-natural-olive text-right">
                           {formatEnthalpyValue(row.value)} <span className="text-[9px] opacity-80">kJ mol⁻¹</span>
                         </span>
