@@ -387,6 +387,7 @@ export default function App() {
   const visibleReferenceRows = currentQuestion.data.table.filter(
     (row) => row.value !== undefined || row.equation !== undefined
   );
+  const shouldShowCanvasStartOverlay = !hasStartedCanvas && !feedback && !isChecking;
   const summaryItems = feedback ? [
     { label: 'Energy cycle structure', status: feedback.summary.cycleStructure },
     { label: 'All equations balanced', status: feedback.summary.allEquationsBalanced },
@@ -548,7 +549,7 @@ export default function App() {
                     templateLayout={canvasTemplateLayout}
                     onClear={handleClearCanvas}
                   />
-                  {!hasStartedCanvas && (
+                  {shouldShowCanvasStartOverlay && (
                     <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/72 backdrop-blur-[2px]">
                       <button
                         onClick={handleStartCanvas}
@@ -571,18 +572,6 @@ export default function App() {
               AI Marking Feedback
               <Info size={12} />
             </h3>
-
-            {isSuggestedAnswerUnlocked && (
-              <div className="mb-4">
-                <button
-                  onClick={() => setIsSuggestedAnswerVisible((previous) => !previous)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-natural-border rounded-xl text-[11px] font-black uppercase tracking-widest text-natural-muted hover:text-natural-olive hover:border-natural-olive transition-colors"
-                >
-                  {isSuggestedAnswerVisible ? <EyeOff size={14} /> : <Eye size={14} />}
-                  <span>{isSuggestedAnswerVisible ? "Hide Final Answer" : "Display Final Answer"}</span>
-                </button>
-              </div>
-            )}
 
             <AnimatePresence mode="wait">
               {!feedback && !isChecking && !error && (
@@ -781,6 +770,18 @@ export default function App() {
                       </div>
                     )}
                   </div>
+
+                  {isSuggestedAnswerUnlocked && (
+                    <div>
+                      <button
+                        onClick={() => setIsSuggestedAnswerVisible((previous) => !previous)}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-natural-border rounded-xl text-[11px] font-black uppercase tracking-widest text-natural-muted hover:text-natural-olive hover:border-natural-olive transition-colors"
+                      >
+                        {isSuggestedAnswerVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                        <span>{isSuggestedAnswerVisible ? "Hide Final Answer" : "Display Final Answer"}</span>
+                      </button>
+                    </div>
+                  )}
 
                   {isSuggestedAnswerVisible && (
                     <div className="bg-white border border-natural-border rounded-xl p-5 shadow-sm space-y-4">

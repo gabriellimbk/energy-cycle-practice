@@ -180,7 +180,7 @@ export const QUESTIONS: Question[] = [
         },
       ],
     },
-    answerHessLaw: "ΔH = [2D(H-H) + D(O=O)] - 4D(O-H) - 2ΔH_vap[H₂O(l)]",
+    answerHessLaw: "ΔH = [2BE(H-H) + BE(O=O)] - 4BE(O-H) - 2ΔH_vap[H₂O(l)]",
     expectedValue: "-572 kJ mol⁻¹",
   },
   {
@@ -203,7 +203,7 @@ export const QUESTIONS: Question[] = [
         },
       ],
     },
-    answerHessLaw: "ΔH = D(H-H) + 2ΔH_atom[I₂(s)] - 2D(H-I)",
+    answerHessLaw: "ΔH = BE(H-H) + 2ΔH_atom[I₂(s)] - 2BE(H-I)",
     expectedValue: "+52 kJ mol⁻¹",
   },
   {

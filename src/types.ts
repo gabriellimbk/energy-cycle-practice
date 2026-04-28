@@ -33,6 +33,8 @@ export interface Feedback {
   };
   extractedEquations: string[];
   extractedNodeLabels: string[];
+  extractedHessLawCalculations?: string[];
+  extractedFinalDeltaHValues?: string[];
   arrowConnections: Array<{
     fromNode: string;
     toNode: string;

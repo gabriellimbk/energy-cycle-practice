@@ -56,9 +56,19 @@ const RESPONSE_SCHEMA = {
       type: Type.ARRAY,
       items: { type: Type.STRING },
       description: "Short notes describing unclear handwriting or uncertain tokens without correcting them."
+    },
+    extractedHessLawCalculations: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "Exact visible lines containing the student's Hess's Law algebra, substituted numerical setup, arithmetic, or final ΔH calculation. Preserve the student's order and signs."
+    },
+    extractedFinalDeltaHValues: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "Exact visible final numerical ΔH values written by the student, including sign and units when visible."
     }
   },
-  required: ["score", "comments", "hessLawApplication", "energyCycleStatus", "hessLawStatus", "deltaHCalculationStatus", "extractedEquations", "extractedNodeLabels", "arrowConnections", "extractionNotes"]
+  required: ["score", "comments", "hessLawApplication", "energyCycleStatus", "deltaHCalculationStatus", "hessLawStatus", "extractedEquations", "extractedNodeLabels", "arrowConnections", "extractionNotes", "extractedHessLawCalculations", "extractedFinalDeltaHValues"]
 };
 
 function getGeminiClient() {
@@ -1373,6 +1383,126 @@ function extractNumericExpressionTotal(label) {
   }
 }
 
+function extractExpectedDeltaHNumber(question) {
+  const match = String(question?.expectedValue ?? "").match(/[+-]?\d+(?:\.\d+)?/);
+  return match ? parseFloat(match[0]) : null;
+}
+
+function normalizeMathExpressionText(value) {
+  return normalizeEquationText(String(value ?? ""))
+    .replace(/[−–—]/g, "-")
+    .replace(/[×Xx]/g, "*")
+    .replace(/[［\[\{]/g, "(")
+    .replace(/[］\]\}]/g, ")")
+    .replace(/,/g, "");
+}
+
+function extractNumericExpressionCandidates(value) {
+  const normalized = normalizeMathExpressionText(value);
+  const chunks = normalized
+    .split(/(?:=|≈|~|;|\n+)/)
+    .flatMap((chunk) => chunk.match(/[+\-]?(?:[\s\d.()+\-*/]){3,}/g) || []);
+
+  return chunks
+    .map((chunk) => chunk.trim())
+    .filter((chunk) => /\d/.test(chunk))
+    .filter((chunk) => /[+\-*/]/.test(chunk) || /\d\s*\(/.test(chunk));
+}
+
+function countNumericLiterals(value) {
+  const matches = String(value ?? "").match(/[+-]?\d+(?:\.\d+)?/g);
+  return matches ? matches.length : 0;
+}
+
+function evaluateNumericExpressionCandidate(candidate) {
+  const normalized = normalizeMathExpressionText(candidate)
+    .replace(/\s+/g, "")
+    .replace(/(?<=\d)\(/g, "*(")
+    .replace(/\)(?=\d)/g, ")*")
+    .replace(/\)\(/g, ")*(");
+
+  if (!normalized || /[^0-9+\-*/().]/.test(normalized)) {
+    return null;
+  }
+
+  try {
+    const total = Function(`"use strict"; return (${normalized});`)();
+    return typeof total === "number" && Number.isFinite(total) ? total : null;
+  } catch {
+    return null;
+  }
+}
+
+function countReferenceValueMatches(expression, question) {
+  const referenceValues = getQuestionNumericReferenceValues(question);
+  const uniqueReferenceValues = Array.from(new Set(referenceValues));
+
+  if (uniqueReferenceValues.length === 0) {
+    return 0;
+  }
+
+  const numbers = (String(expression ?? "").match(/[+-]?\d+(?:\.\d+)?/g) || [])
+    .map((value) => Math.abs(parseFloat(value)))
+    .filter((value) => Number.isFinite(value));
+
+  return uniqueReferenceValues.filter((referenceValue) =>
+    numbers.some((value) => Math.abs(value - referenceValue) < 0.6)
+  ).length;
+}
+
+function getQuestionNumericReferenceValues(question) {
+  return (question?.data?.table || [])
+    .map((row) => row.value)
+    .filter((value) => typeof value === "number" && Number.isFinite(value))
+    .map((value) => Math.abs(value));
+}
+
+function hasCorrectDeterministicHessCalculation(calculationLines, question) {
+  const expected = extractExpectedDeltaHNumber(question);
+  if (expected === null) {
+    return false;
+  }
+
+  const knownReferenceValueCount = new Set(getQuestionNumericReferenceValues(question)).size;
+  const requiredReferenceMatches = Math.min(2, knownReferenceValueCount);
+  for (const line of calculationLines) {
+    for (const candidate of extractNumericExpressionCandidates(line)) {
+      if (countNumericLiterals(candidate) < 2) {
+        continue;
+      }
+
+      const referenceMatches = countReferenceValueMatches(candidate, question);
+      if (referenceMatches < requiredReferenceMatches) {
+        continue;
+      }
+
+      const total = evaluateNumericExpressionCandidate(candidate);
+      if (total !== null && Math.abs(total - expected) <= 1) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function hasCorrectDeterministicFinalDeltaH(finalValueLines, calculationLines, question) {
+  const expected = extractExpectedDeltaHNumber(question);
+  if (expected === null) {
+    return false;
+  }
+
+  const lines = [...finalValueLines, ...calculationLines];
+  for (const line of lines) {
+    const numbers = String(line ?? "").match(/[+-]?\d+(?:\.\d+)?/g) || [];
+    if (numbers.some((value) => Math.abs(parseFloat(value) - expected) <= 1)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function extractProductFromReferenceEquation(equationText) {
   const sides = equationText.split(/\s*(?:->|→|⟶|⟹|=>|=)\s*/);
   if (sides.length !== 2) {
@@ -1837,8 +1967,9 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
     4. Classify whether the energy cycle diagram is structurally complete or incomplete.
     5. Classify the Hess's Law mathematical calculation as correct, incorrect, or missing.
     6. Classify the final ΔH numerical value as correct, incorrect, or missing.
-    7. Mark the student's work based on the checklist.
-    8. Provide constructive feedback (do NOT include general remarks about the cycle being well-drawn or clearly structured).
+    7. Extract the exact written Hess's Law calculation lines and final ΔH value lines.
+    8. Mark the student's work based on the checklist.
+    9. Provide constructive feedback (do NOT include general remarks about the cycle being well-drawn or clearly structured).
 
     ARROW DIRECTION RULES (critical — read carefully):
     - The arrowhead marks the DESTINATION (toNode). It appears as a pointed V-shape, >, or angular mark at one end of the drawn line.
@@ -1877,10 +2008,13 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
     - Use hessLawStatus = "missing" if the student has not written any explicit algebraic Hess's Law calculation (e.g. ΔH = value1 + value2 - value3).
     - Use hessLawStatus = "incorrect" if a written Hess's Law calculation is present but uses wrong signs or wrong reference values in the formula itself.
     - Use hessLawStatus = "correct" if the student has correctly written the formula with the right signs and right values, even if their arithmetic on the next line contains an error.
+    - Accept algebraically equivalent Hess's Law calculation forms. The terms may be reordered, grouped differently, or written with equivalent signs such as "-(-1)" instead of "+1". Do not require the expression to match the expected setup word-for-word.
+    - Extract written calculation lines exactly into extractedHessLawCalculations, including substituted value lines such as "ΔH = -(-1) + 4(-394) + 4(-286)".
     - deltaHCalculationStatus is ONLY about the final numerical answer written by the student (e.g. "ΔH = -2719 kJ mol⁻¹" or just "-2719"). Ignore energy cycle structure completely.
     - Use deltaHCalculationStatus = "missing" if no final numerical ΔH value is written anywhere on the page.
     - Use deltaHCalculationStatus = "incorrect" if a final numerical ΔH value is written but does not match ${question.expectedValue}.
     - Use deltaHCalculationStatus = "correct" if the final numerical ΔH value written matches ${question.expectedValue} (allow minor rounding within ±1 unit).
+    - Extract final numerical answer lines exactly into extractedFinalDeltaHValues.
 
     Remember: the goal is to reconstruct the equations represented by the Hess-cycle arrows.
   `;
@@ -1924,6 +2058,8 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
   const extractionNotes = normalizeStringArray(parsedResponse.extractionNotes).filter(
     (note) => !isLabelFormattingNote(note)
   );
+  const extractedHessLawCalculations = normalizeStringArray(parsedResponse.extractedHessLawCalculations);
+  const extractedFinalDeltaHValues = normalizeStringArray(parsedResponse.extractedFinalDeltaHValues);
   const normalizedArrowConnections = normalizeArrowConnections(parsedResponse.arrowConnections);
   const inferredArrowConnections = inferArrowConnectionsFromNotes(question, normalizedArrowConnections, extractionNotes);
   const arrowConnections = validateBondEnergyLabelSigns(
@@ -1963,8 +2099,20 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
 
   const modelComments = normalizeStringArray(parsedResponse.comments);
   const rawEnergyCycleStatus = normalizeBinaryStatus(parsedResponse.energyCycleStatus);
-  const hessLawStatus = normalizeTernaryStatus(parsedResponse.hessLawStatus);
-  const deltaHCalculationStatus = normalizeTernaryStatus(parsedResponse.deltaHCalculationStatus);
+  let hessLawStatus = normalizeTernaryStatus(parsedResponse.hessLawStatus);
+  let deltaHCalculationStatus = normalizeTernaryStatus(parsedResponse.deltaHCalculationStatus);
+  const deterministicHessLawCorrect = hasCorrectDeterministicHessCalculation(extractedHessLawCalculations, question);
+  const deterministicFinalDeltaHCorrect = hasCorrectDeterministicFinalDeltaH(
+    extractedFinalDeltaHValues,
+    extractedHessLawCalculations,
+    question,
+  );
+  if (deterministicHessLawCorrect) {
+    hessLawStatus = "correct";
+  }
+  if (deterministicFinalDeltaHCorrect) {
+    deltaHCalculationStatus = "correct";
+  }
   const targetReaction = questionTargetReaction;
   const actualMergedArrowEntries = buildMergedActualArrowEntries(question, arrowConnections);
   const targetReactionFromActualArrow = reconstructedEquations.some(
@@ -2071,6 +2219,8 @@ export async function analyzeStudentWork(question, imageBase64, analysisImages =
     },
     extractedEquations,
     extractedNodeLabels,
+    extractedHessLawCalculations,
+    extractedFinalDeltaHValues,
     arrowConnections,
     extractionNotes,
     reconstructedEquationChecks,

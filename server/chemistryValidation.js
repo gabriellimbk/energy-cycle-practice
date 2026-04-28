@@ -166,7 +166,8 @@ export function stripStandaloneAqueousContext(value) {
 }
 
 function isAqueousContextToken(value) {
-  return /^aq$/i.test(normalizeEquationText(value));
+  const normalized = normalizeEquationText(value);
+  return /^aq$/i.test(normalized) || /^a\s*g$/.test(normalized);
 }
 
 function normalizeFormulaForBalance(value) {
