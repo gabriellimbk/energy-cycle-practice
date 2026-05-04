@@ -406,7 +406,7 @@ export default function App() {
           </div>
           <h1 className="font-serif text-xl font-bold tracking-tight">Energy Cycle Practice</h1>
           <p className="mt-3 text-sm leading-relaxed text-natural-muted">
-            Open this activity from Canvas to begin.
+            Open this activity from IVY to begin.
           </p>
         </div>
       </div>
